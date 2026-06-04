@@ -1,0 +1,118 @@
+x-airflow-common: &airflow-common
+  image: apache/airflow:3.2.2
+  environment:
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+  volumes:
+    - ./backend/airflow/dags:/opt/airflow/dags
+    - ./backend/spark:/opt/airflow/spark
+    - airflow_logs:/opt/airflow/logs
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - news_net
+
+services:
+
+  postgres:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    container_name: news_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 10s
+      retries: 5
+    networks:
+      - news_net
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: news_airflow_webserver
+    restart: always
+    command: >
+      bash -c "
+        pip install apache-airflow-providers-fab &&
+        airflow db migrate &&
+        airflow users create --username ${AIRFLOW_USER} --password ${AIRFLOW_PASSWORD} --firstname Admin --lastname User --role Admin --email ${AIRFLOW_EMAIL} || true &&
+        airflow api-server
+      "
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      retries: 5
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: news_airflow_scheduler
+    restart: always
+    command: scheduler
+    depends_on:
+      airflow-webserver:
+        condition: service_healthy
+
+  spark-master:
+    image: apache/spark:3.5.3-python3
+    container_name: news_spark_master
+    restart: always
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    ports:
+      - "7077:7077"
+      - "8081:8080"
+    networks:
+      - news_net
+
+  spark-worker:
+    image: apache/spark:3.5.3-python3
+    container_name: news_spark_worker
+    restart: always
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    depends_on:
+      - spark-master
+    networks:
+      - news_net
+
+  fastapi:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: news_fastapi
+    restart: always
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      EMBED_MODEL: ${EMBED_MODEL}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - news_net
+
+volumes:
+  postgres_data:
+  airflow_logs:
+
+networks:
+  news_net:
+    driver: bridge
