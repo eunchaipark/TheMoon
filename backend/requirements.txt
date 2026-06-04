@@ -14,10 +14,10 @@ feedparser==6.0.11
 # 임베딩
 sentence-transformers==4.1.0
 
-# LLM
-openai==1.84.0
-langchain==0.3.25
-langchain-openai==0.3.18
+# LLM  아마 나중에 수정할듯? 무료 LLM API로
+#openai==1.84.0
+#langchain==0.3.25
+#langchain-openai==0.3.18
 
 # Spark
 pyspark==3.5.3
