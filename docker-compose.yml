@@ -1,8 +1,9 @@
 x-airflow-common: &airflow-common
   image: apache/airflow:3.2.2
   environment:
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+    AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+    AIRFLOW__CORE__EXECUTOR_CONFIG: '{}'
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
@@ -10,9 +11,6 @@ x-airflow-common: &airflow-common
     - ./backend/airflow/dags:/opt/airflow/dags
     - ./backend/spark:/opt/airflow/spark
     - airflow_logs:/opt/airflow/logs
-  depends_on:
-    postgres:
-      condition: service_healthy
   networks:
     - news_net
 
@@ -33,7 +31,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
       interval: 10s
       retries: 5
     networks:
@@ -61,7 +59,7 @@ services:
     <<: *airflow-common
     container_name: news_airflow_scheduler
     restart: always
-    command: scheduler
+    command: bash -c "airflow db migrate && airflow scheduler"
     depends_on:
       airflow-webserver:
         condition: service_healthy
