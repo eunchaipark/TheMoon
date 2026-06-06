@@ -17,7 +17,7 @@ export default function Header() {
     <>
       <header className="header">
         <span className="header__logo" onClick={() => navigate('/')}>
-          <img src={TheMoonLogo} alt="TheMoon 로고" style={{ height: '80px' }} />
+          <img src={TheMoonLogo} alt="TheMoon 로고" style={{ height: '67px' }} />
         </span>
         <div className="header__auth">
           {isLoggedIn ? (
