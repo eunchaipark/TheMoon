@@ -1,0 +1,183 @@
+.mypage__overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mypage__panel {
+  background: #fff;
+  border-radius: 12px;
+  border: 0.5px solid rgba(0,0,0,0.1);
+  width: 340px;
+  padding: 20px;
+}
+
+.mypage__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.mypage__header-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.mypage__header-close {
+  font-size: 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.mypage__header-close:hover {
+  background: #f5f5f0;
+}
+
+.mypage__profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 0.5px solid rgba(0,0,0,0.1);
+}
+
+.mypage__profile-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e6f1fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: #185fa5;
+}
+
+.mypage__profile-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.mypage__profile-email {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
+}
+
+.mypage__section-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0 0 12px;
+}
+
+.mypage__prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mypage__pref-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mypage__pref-label {
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+.mypage__pref-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mypage__pref-slider {
+  width: 120px;
+}
+
+.mypage__pref-value {
+  font-size: 13px;
+  color: #888;
+  min-width: 16px;
+  text-align: right;
+}
+
+.mypage__save-btn {
+  width: 100%;
+  font-size: 13px;
+  padding: 9px;
+  border: 0.5px solid rgba(0,0,0,0.2);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  color: #1a1a1a;
+}
+
+.mypage__save-btn:hover {
+  background: #f5f5f0;
+}
+
+.mypage__login-msg {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.mypage__login-msg-text {
+  font-size: 13px;
+  color: #888;
+  margin: 0 0 12px;
+}
+
+.mypage__login-msg-btn {
+  font-size: 13px;
+  padding: 7px 20px;
+  background: #e6f1fb;
+  color: #185fa5;
+  border: 1px solid #b5d4f4;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mypage__login-msg-btn:hover {
+  background: #d0e4f7;
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.mypage__overlay {
+  animation: fadeIn 0.2s ease;
+}
+
+.mypage__panel {
+  animation: scaleIn 0.25s ease;
+}

@@ -1,0 +1,153 @@
+.main {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.main__content {
+  max-width: 85%;
+  margin: 0 auto;
+  padding: 90px 16px 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.main__section {
+  background: #fff;
+  border-radius: 12px;
+  border: 0.5px solid rgba(0,0,0,0.1);
+  padding: 18px 20px;
+}
+
+.main__section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.main__section-title--star {
+  color: #e8a000;
+}
+
+.main__card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.main__login-banner {
+  background: #fff;
+  border-radius: 12px;
+  border: 0.5px solid rgba(0,0,0,0.1);
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.main__login-banner-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0 0 6px;
+}
+
+.main__login-banner-sub {
+  font-size: 13px;
+  color: #888;
+  margin: 0 0 16px;
+}
+
+.main__login-banner-btn {
+  background: #e8f0fb;
+  color: #185fa5;
+  border: 1px solid #b5d4f4;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.main__login-banner-btn:hover {
+  background: #d0e4f7;
+}
+
+.main__latest-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.main__latest-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 0.5px solid rgba(0,0,0,0.08);
+  cursor: pointer;
+}
+
+.main__latest-item:last-child {
+  border-bottom: none;
+}
+
+.main__latest-item:hover .main__latest-item-title {
+  color: #185fa5;
+}
+
+.main__latest-item-badge {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.main__latest-item-badge--politics {
+  background: #e6f1fb;
+  color: #185fa5;
+}
+
+.main__latest-item-badge--economy {
+  background: #faeeda;
+  color: #854f0b;
+}
+
+.main__latest-item-badge--society {
+  background: #eaf3de;
+  color: #3b6d11;
+}
+
+.main__latest-item-content {
+  flex: 1;
+}
+
+.main__latest-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0 0 3px;
+  line-height: 1.4;
+}
+
+.main__latest-item-meta {
+  font-size: 11px;
+  color: #888;
+}
+
+.main__latest-item-icon {
+  font-size: 13px;
+  color: #aaa;
+  margin-top: 2px;
+}
+
+.main__bottom-trigger {
+  padding: 16px 0 4px;
+  text-align: center;
+}
+
+.main__loading-text {
+  font-size: 12px;
+  color: #aaa;
+}

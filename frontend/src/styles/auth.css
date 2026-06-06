@@ -1,0 +1,151 @@
+.auth {
+  min-height: 100vh;
+  background: #f5f5f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth__card {
+  background: #fff;
+  border-radius: 12px;
+  border: 0.5px solid rgba(0,0,0,0.1);
+  padding: 32px 28px;
+  width: 380px;
+}
+
+.auth__logo {
+  font-size: 20px;
+  font-weight: 500;
+  color: #1a1a1a;
+  text-align: center;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.auth__subtitle {
+  font-size: 13px;
+  color: #888;
+  text-align: center;
+  margin: 0 0 24px;
+}
+
+.auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth__form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.auth__form-label {
+  font-size: 13px;
+  color: #444;
+  font-weight: 500;
+}
+
+.auth__form-input {
+  font-size: 13px;
+  padding: 9px 12px;
+  border: 0.5px solid rgba(0,0,0,0.2);
+  border-radius: 8px;
+  outline: none;
+  color: #1a1a1a;
+}
+
+.auth__form-input:focus {
+  border-color: #185fa5;
+}
+
+.auth__category-title {
+  font-size: 13px;
+  color: #444;
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+
+.auth__category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth__category-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.auth__category-label {
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+.auth__category-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth__category-slider {
+  width: 110px;
+}
+
+.auth__category-value {
+  font-size: 13px;
+  color: #888;
+  min-width: 16px;
+  text-align: right;
+}
+
+.auth__submit-btn {
+  width: 100%;
+  font-size: 14px;
+  padding: 10px;
+  background: #e6f1fb;
+  color: #185fa5;
+  border: 1px solid #b5d4f4;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.auth__submit-btn:hover {
+  background: #d0e4f7;
+}
+
+.auth__submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.auth__error {
+  font-size: 12px;
+  color: #c0392b;
+  text-align: center;
+  margin: 0;
+}
+
+.auth__footer {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.auth__footer-text {
+  font-size: 13px;
+  color: #888;
+}
+
+.auth__footer-link {
+  font-size: 13px;
+  color: #185fa5;
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+}
