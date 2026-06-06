@@ -1,0 +1,40 @@
+.fab {
+  position: fixed;
+  right: 35px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 40;
+  cursor: ns-resize;
+  user-select: none;
+}
+
+.fab__btn {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  border: 0.5px solid rgba(0,0,0,0.15);
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  transition: box-shadow 0.2s, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.fab__btn:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  transform: scale(1.12);
+}
+
+.fab__btn:active {
+  transform: scale(0.95);
+}
+
+.fab__btn--chat {
+  background: #e6f1fb;
+  border-color: #b5d4f4;
+  color: #185fa5;
+}
