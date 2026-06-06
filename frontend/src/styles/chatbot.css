@@ -16,8 +16,8 @@
   background: #fff;
   border-radius: 12px;
   border: 0.5px solid rgba(0,0,0,0.1);
-  width: 360px;
-  height: 500px;
+  width: 430px;
+  height: 510px;
   display: flex;
   flex-direction: column;
 }
@@ -137,4 +137,23 @@
 .chatbot__send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 애니메이션 */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.chatbot__overlay {
+  animation: fadeIn 0.2s ease;
+}
+
+.chatbot__panel {
+  animation: fadeInUp 0.25s ease;
 }
