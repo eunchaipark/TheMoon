@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import AuthModal from './AuthModal'
 import '../styles/header.css'
-import TheMoonLogo from '../../public/theMoon_Logo.png'
+import TheMoonLogo from '../assets/theMoon_Logo.png'
 
 export default function Header() {
   const navigate = useNavigate()
