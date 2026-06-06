@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import NewsCard from '../components/NewsCard'
 import ChatBot from '../components/ChatBot'
 import MyPage from '../components/MyPage'
+import FAB from '../components/FAB.jsx'
 import { useAuthStore } from '../store/authStore'
 import { getRecommendedFeed, getTrendingFeed, getLatestFeed } from '../api/feed'
 import '../styles/main.css'
@@ -15,8 +15,7 @@ const BADGE_CLASS = {
 }
 
 export default function Main() {
-  const navigate = useNavigate()
-  const { isLoggedIn } = useAuthStore()
+  const { isLoggedIn, openAuthModal } = useAuthStore()
 
   const [recommended, setRecommended] = useState([])
   const [trending, setTrending] = useState([])
@@ -30,15 +29,7 @@ export default function Main() {
   const observerRef = useRef(null)
   const bottomRef = useRef(null)
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      getRecommendedFeed().then(setRecommended).catch(console.error)
-    }
-    getTrendingFeed().then(setTrending).catch(console.error)
-    loadLatest(1)
-  }, [isLoggedIn])
-
-  const loadLatest = async (pageNum) => {
+  const loadLatest = useCallback(async (pageNum) => {
     if (loading) return
     setLoading(true)
     try {
@@ -54,14 +45,25 @@ export default function Main() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [loading])
+
+  useEffect(() => {
+    const init = async () => {
+      if (isLoggedIn) {
+        getRecommendedFeed().then(setRecommended).catch(console.error)
+      }
+      getTrendingFeed().then(setTrending).catch(console.error)
+      await loadLatest(1)
+    }
+    init()
+  }, [isLoggedIn])
 
   const handleObserver = useCallback((entries) => {
     const target = entries[0]
     if (target.isIntersecting && hasMore && !loading) {
       loadLatest(page + 1)
     }
-  }, [hasMore, loading, page])
+  }, [hasMore, loading, page, loadLatest])
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(handleObserver, { threshold: 0.5 })
@@ -91,7 +93,7 @@ export default function Main() {
           <div className="main__login-banner">
             <p className="main__login-banner-title">로그인하면 맞춤 뉴스를 추천해드려요</p>
             <p className="main__login-banner-sub">관심 카테고리 기반으로 나만의 뉴스 피드를 만들어보세요</p>
-            <button className="main__login-banner-btn" onClick={() => navigate('/login')}>
+            <button className="main__login-banner-btn" onClick={openAuthModal}>
               로그인하기
             </button>
           </div>
@@ -99,7 +101,7 @@ export default function Main() {
 
         <section className="main__section">
           <div className="main__section-title">
-            지금 화제 중복 기사 순으로 나열하기 중복,시간 순
+            🔥 지금 화제
           </div>
           <div className="main__card-grid">
             {trending.map(article => (
@@ -110,7 +112,7 @@ export default function Main() {
 
         <section className="main__section">
           <div className="main__section-title">
-            최신 뉴스 단순히 시간순 무한 스크롤 가능 대신 중복은 없애야함
+            📰 최신 뉴스
           </div>
           <div className="main__latest-list">
             {latest.map(article => (
@@ -140,22 +142,10 @@ export default function Main() {
 
       </div>
 
-      <div className="main__fab">
-        <button
-          className="main__fab-btn"
-          onClick={() => setMypageOpen(true)}
-          aria-label="마이페이지"
-        >
-          👤
-        </button>
-        <button
-          className="main__fab-btn main__fab-btn--chat"
-          onClick={() => setChatOpen(true)}
-          aria-label="챗봇 열기"
-        >
-          💬
-        </button>
-      </div>
+      <FAB
+        onChatOpen={() => setChatOpen(true)}
+        onMypageOpen={() => setMypageOpen(true)}
+      />
 
       <ChatBot isOpen={chatOpen} onClose={() => setChatOpen(false)} />
       <MyPage isOpen={mypageOpen} onClose={() => setMypageOpen(false)} />
