@@ -1,19 +1,23 @@
 import { useState, useRef, useEffect } from 'react'
 import '../styles/fab.css'
 
-const BTN_SIZE = 44
+const BTN_SIZE = 55
 const BTN_GAP = 10
 const TOTAL_HEIGHT = BTN_SIZE * 2 + BTN_GAP
-const PADDING = 24
+const PADDING_RIGHT = 35
+const PADDING_BOTTOM = 60
 
 export default function FAB({ onChatOpen, onMypageOpen }) {
-  const [topY, setTopY] = useState(window.innerHeight - TOTAL_HEIGHT - PADDING)
+  const [topY, setTopY] = useState(window.innerHeight - TOTAL_HEIGHT - PADDING_BOTTOM)
   const dragging = useRef(false)
   const dragStartY = useRef(0)
   const startTopY = useRef(0)
   const hasDragged = useRef(false)
 
-  const clamp = (val) => Math.min(Math.max(val, PADDING), window.innerHeight - TOTAL_HEIGHT - PADDING)
+  const clamp = (val) => Math.min(
+    Math.max(val, PADDING_BOTTOM),
+    window.innerHeight - TOTAL_HEIGHT - PADDING_BOTTOM
+  )
 
   useEffect(() => {
     const onMouseMove = (e) => {
@@ -58,7 +62,7 @@ export default function FAB({ onChatOpen, onMypageOpen }) {
   return (
     <div
       className="fab"
-      style={{ top: topY, right: PADDING }}
+      style={{ top: topY, right: PADDING_RIGHT }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
     >
