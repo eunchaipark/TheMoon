@@ -15,7 +15,7 @@ feedparser==6.0.11
 sentence-transformers==4.1.0
 
 # LLM  아마 나중에 수정할듯? 무료 LLM API로
-#openai==1.84.0
+google-generativeai
 #langchain==0.3.25
 #langchain-openai==0.3.18
 
