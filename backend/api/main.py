@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api.routes import feed, user
+from api.routes import feed, user, chat
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
@@ -18,6 +18,7 @@ app.add_middleware(
 
 app.include_router(feed.router)
 app.include_router(user.router)
+app.include_router(chat.router)
 
 
 @app.get("/")
