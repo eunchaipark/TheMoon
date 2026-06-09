@@ -103,6 +103,8 @@ services:
       LANG: C.UTF-8
       LC_ALL: C.UTF-8
       PYTHONIOENCODING: utf-8
+    volumes:
+      - ./backend:/app
     ports:
       - "8000:8000"
     depends_on:
