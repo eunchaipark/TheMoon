@@ -25,3 +25,5 @@ pyspark==3.5.3
 # 기타
 python-dotenv==1.1.0
 httpx==0.28.1
+bcrypt
+pyjwt
