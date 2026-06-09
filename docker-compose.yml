@@ -85,40 +85,31 @@ services:
     networks:
       - news_net
 
-  # fastapi:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: news_fastapi
-  #   restart: always
-  #   environment:
-  #     POSTGRES_HOST: postgres
-  #     POSTGRES_PORT: 5432
-  #     POSTGRES_DB: ${POSTGRES_DB}
-  #     POSTGRES_USER: ${POSTGRES_USER}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  #     OPENAI_API_KEY: ${OPENAI_API_KEY}
-  #     EMBED_MODEL: ${EMBED_MODEL}
-  #   ports:
-  #     - "8000:8000"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   networks:
-  #     - news_net
-  #
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: news_frontend
-  #   restart: always
-  #   ports:
-  #     - "80:80"
-  #   depends_on:
-  #     - fastapi
-  #   networks:
-  #     - news_net
+  fastapi:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: news_fastapi
+    restart: always
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      EMBED_MODEL: ${EMBED_MODEL}
+      AIRFLOW_SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      PYTHONIOENCODING: utf-8
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - news_net
 
 volumes:
   postgres_data:
