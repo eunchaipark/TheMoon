@@ -41,14 +41,15 @@ def login(body: LoginRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/prefs/categories")
+@router.get("/prefs/categories")
 def get_prefs(authorization: str = Header(...)):
     try:
         token = authorization.replace("Bearer ", "")
         payload = user_service.decode_token(token)
         return user_service.get_category_prefs(payload['user_id'])
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=401, detail=str(e))
+
 
 @router.post("/prefs/categories")
 def update_prefs(prefs: list[PrefItem], authorization: str = Header(...)):
@@ -58,4 +59,5 @@ def update_prefs(prefs: list[PrefItem], authorization: str = Header(...)):
         user_service.update_category_prefs(payload['user_id'], [p.dict() for p in prefs])
         return {"success": True}
     except Exception as e:
-        raise HTTPException(status_code=400, detail="인증이 필요합니다")
+        print(f"update_prefs error: {e}")
+        raise HTTPException(status_code=401, detail=str(e))

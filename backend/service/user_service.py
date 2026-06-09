@@ -26,7 +26,7 @@ def create_token(user_id: int, email: str) -> str:
 
 
 def decode_token(token: str) -> dict:
-    return jwt.decode(token, settings.AIRFLOW_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
 
 
 def register(email: str, password: str, nickname: str, category_prefs: list[dict]) -> dict:
