@@ -34,3 +34,16 @@ def get_history(session_id: str, limit: int = 6) -> list[dict]:
         conn.close()
 
 
+def save_message(session_id: str, role: str, message: str) -> int:
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+                    INSERT INTO chat_history (session_id, role, message)
+                    VALUES (%s, %s, %s) RETURNING chat_id
+                    """, (session_id, role, message))
+        conn.commit()
+        return cur.fetchone()[0]
+    finally:
+        conn.close()
+
