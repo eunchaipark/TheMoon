@@ -14,7 +14,7 @@ def build_prompt(query: str, chunks: list[dict], history: list[dict]) -> list[di
     messages = [{"role": "system", "content": system_prompt}]
 
     # 슬라이딩 윈도우
-    for msg in messages:
+    for msg in history:
         messages.append({
             "role": msg["role"],
             "content": msg["message"],
