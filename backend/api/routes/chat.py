@@ -24,3 +24,21 @@ def chat(body: ChatRequest, authorization: str = Header(...)):
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/history/{session_id}")
+def get_history(session_id: str, authorization: str = Header(...)):
+    try:
+        token = authorization.replace("Bearer ", "")
+        decode_token(token)
+        return chat_service.get_history(session_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/sessions")
+def get_sessions(authorization: str = Header(...)):
+    try:
+        token = authorization.replace("Bearer ", "")
+        payload = decode_token(token)
+        return chat_service.get_sessions(payload['user_id'])
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
