@@ -1,10 +1,8 @@
 -- ==========================================
 -- 1. EXTENSIONS (확장 기능 설정)
 -- ==========================================
-CREATE
-EXTENSION IF NOT EXISTS vector;
-CREATE
-EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 
 -- ==========================================
@@ -36,7 +34,7 @@ CREATE TABLE articles
     source_id         INT         NOT NULL,
     category_id       INT         NOT NULL,
     title             TEXT        NOT NULL,
-    description       TEXT        NOT NULL,
+    description       TEXT,
     url               TEXT UNIQUE NOT NULL,
     published_at      TIMESTAMP   NOT NULL,
     is_processed      BOOLEAN   DEFAULT FALSE,
@@ -55,7 +53,7 @@ CREATE TABLE article_chunks
     article_id  BIGINT NOT NULL,
     chunk_index INT    NOT NULL,
     content     TEXT   NOT NULL,
-    embedding   VECTOR(768), -- pgvector 768차원
+    embedding   VECTOR(768),
     created_at  TIMESTAMP DEFAULT NOW(),
     FOREIGN KEY (article_id) REFERENCES articles (article_id) ON DELETE CASCADE
 );
@@ -83,7 +81,7 @@ CREATE TABLE user_category_prefs
     FOREIGN KEY (category_id) REFERENCES categories (category_id) ON DELETE CASCADE
 );
 
--- 유저별 키워드 선호도 관리 테이블 (추후 기능 확장 시 활성화) --> 카테고리 뿐만이나리 나중에 키워드로 개인화 확장 가능
+-- 유저별 키워드 선호도 관리 테이블 (추후 기능 확장 시 활성화)
 -- CREATE TABLE user_keyword_prefs (
 --     pref_id BIGSERIAL PRIMARY KEY,
 --     user_id BIGINT NOT NULL,
@@ -108,7 +106,7 @@ CREATE TABLE chat_history
 (
     chat_id    BIGSERIAL PRIMARY KEY,
     session_id UUID        NOT NULL,
-    role       VARCHAR(20) NOT NULL, -- 'user' 또는 'assistant'
+    role       VARCHAR(20) NOT NULL,
     message    TEXT        NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     FOREIGN KEY (session_id) REFERENCES chat_sessions (session_id) ON DELETE CASCADE
@@ -147,9 +145,9 @@ CREATE INDEX idx_chat_history_session ON chat_history (session_id);
 INSERT INTO categories (name)
 VALUES ('정치'),
        ('경제'),
-       ('사회') ON CONFLICT (name) DO NOTHING;
+       ('사회')
+ON CONFLICT (name) DO NOTHING;
 
--- category_id: 1=정치, 2=경제, 3=사회
 INSERT INTO news_sources (name, rss_url, category_id)
 VALUES ('연합뉴스_정치', 'https://www.yna.co.kr/rss/politics.xml', 1),
        ('연합뉴스_경제', 'https://www.yna.co.kr/rss/economy.xml', 2),
@@ -162,75 +160,74 @@ VALUES ('연합뉴스_정치', 'https://www.yna.co.kr/rss/politics.xml', 1),
        ('경향신문_정치', 'https://www.khan.co.kr/rss/rssdata/politic.xml', 1),
        ('경향신문_경제', 'https://www.khan.co.kr/rss/rssdata/economy.xml', 2),
        ('SBS_정치', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01', 1),
-       ('SBS_경제', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02', 2) ON CONFLICT (rss_url) DO NOTHING;
-
+       ('SBS_경제', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02', 2)
+ON CONFLICT (rss_url) DO NOTHING;
 
 
 -- ==========================================
 -- 5. DUMMY DATA (개발 및 테스트용)
 -- ==========================================
 
--- 테스트 유저
 INSERT INTO users (email, password_hash, nickname)
 VALUES ('test1@news.com', '$2b$12$dummy_hash_user1', '김테스트'),
-       ('test2@news.com', '$2b$12$dummy_hash_user2', '이개발') ON CONFLICT (email) DO NOTHING;
+       ('test2@news.com', '$2b$12$dummy_hash_user2', '이개발')
+ON CONFLICT (email) DO NOTHING;
 
--- 테스트 유저 카테고리 선호도
 INSERT INTO user_category_prefs (user_id, category_id, weight)
 VALUES (1, 1, 9),
        (1, 2, 6),
        (2, 2, 10),
        (2, 3, 7)
-    ON CONFLICT (user_id, category_id) DO NOTHING;
+ON CONFLICT (user_id, category_id) DO NOTHING;
 
--- 테스트 기사 (is_processed=false, embedding 없음)
-INSERT INTO articles (source_id, category_id, title, description, url, published_at)
-VALUES (1, 1, '국회 본회의 예산안 처리 논의 본격화',
-        '국회가 내년도 예산안 처리를 위한 본회의 일정을 조율 중이다. 여야는 예산안 세부 항목을 두고 막판 협상을 이어가고 있다.',
-        'https://www.yna.co.kr/view/AKR20240101001', NOW() - INTERVAL '2 hours'),
+-- is_processed = true 로 설정해야 피드 쿼리에서 조회됨
+INSERT INTO articles (source_id, category_id, title, description, url, published_at, is_processed)
+VALUES
+    (1, 1, '국회 본회의 예산안 처리 논의 본격화',
+     '국회가 내년도 예산안 처리를 위한 본회의 일정을 조율 중이다. 여야는 예산안 세부 항목을 두고 막판 협상을 이어가고 있다.',
+     'https://www.yna.co.kr/view/AKR20240101001', NOW() - INTERVAL '2 hours', true),
 
-       (1, 1, '대통령실 국정 운영 방향 발표',
-        '대통령실이 하반기 국정 운영 핵심 과제를 발표했다. 민생 경제 회복과 외교 강화를 최우선 과제로 제시했다.',
-        'https://www.yna.co.kr/view/AKR20240101002', NOW() - INTERVAL '4 hours'),
+    (1, 1, '대통령실 국정 운영 방향 발표',
+     '대통령실이 하반기 국정 운영 핵심 과제를 발표했다. 민생 경제 회복과 외교 강화를 최우선 과제로 제시했다.',
+     'https://www.yna.co.kr/view/AKR20240101002', NOW() - INTERVAL '4 hours', true),
 
-       (2, 2, '한국은행 기준금리 동결 결정',
-        '한국은행 금융통화위원회가 기준금리를 현 수준으로 동결했다. 물가 안정세와 경기 침체 우려를 동시에 고려한 결정이다.',
-        'https://www.yna.co.kr/view/AKR20240101003', NOW() - INTERVAL '1 hour'),
+    (2, 2, '한국은행 기준금리 동결 결정',
+     '한국은행 금융통화위원회가 기준금리를 현 수준으로 동결했다. 물가 안정세와 경기 침체 우려를 동시에 고려한 결정이다.',
+     'https://www.yna.co.kr/view/AKR20240101003', NOW() - INTERVAL '1 hour', true),
 
-       (2, 2, '삼성전자 3분기 영업이익 10조 돌파',
-        '삼성전자가 3분기 영업이익 10조원을 넘어섰다. 반도체 업황 회복과 스마트폰 판매 호조가 실적을 견인했다.',
-        'https://www.yna.co.kr/view/AKR20240101004', NOW() - INTERVAL '3 hours'),
+    (2, 2, '삼성전자 3분기 영업이익 10조 돌파',
+     '삼성전자가 3분기 영업이익 10조원을 넘어섰다. 반도체 업황 회복과 스마트폰 판매 호조가 실적을 견인했다.',
+     'https://www.yna.co.kr/view/AKR20240101004', NOW() - INTERVAL '3 hours', true),
 
-       (5, 3, '수도권 폭우 피해 복구 작업 진행',
-        '수도권 일대를 강타한 폭우로 인한 피해 복구 작업이 진행 중이다. 이재민 지원과 도로 복구에 행정력을 집중하고 있다.',
-        'https://www.mk.co.kr/news/001', NOW() - INTERVAL '5 hours'),
+    (5, 3, '수도권 폭우 피해 복구 작업 진행',
+     '수도권 일대를 강타한 폭우로 인한 피해 복구 작업이 진행 중이다. 이재민 지원과 도로 복구에 행정력을 집중하고 있다.',
+     'https://www.mk.co.kr/news/001', NOW() - INTERVAL '5 hours', true),
 
-       (5, 3, '전국 대학병원 응급실 과부하 문제 심화',
-        '전국 주요 대학병원 응급실이 환자 급증으로 과부하 상태에 놓였다. 의료진 부족과 병상 부족이 동시에 문제로 지적되고 있다.',
-        'https://www.mk.co.kr/news/002', NOW() - INTERVAL '6 hours') ON CONFLICT (url) DO NOTHING;
+    (5, 3, '전국 대학병원 응급실 과부하 문제 심화',
+     '전국 주요 대학병원 응급실이 환자 급증으로 과부하 상태에 놓였다. 의료진 부족과 병상 부족이 동시에 문제로 지적되고 있다.',
+     'https://www.mk.co.kr/news/002', NOW() - INTERVAL '6 hours', true)
+ON CONFLICT (url) DO NOTHING;
 
--- 테스트 청크 (embedding NULL, Spark 처리 전 상태)
 INSERT INTO article_chunks (article_id, chunk_index, content)
-VALUES (1, 0, '국회가 내년도 예산안 처리를 위한 본회의 일정을 조율 중이다.'),
-       (1, 1, '여야는 예산안 세부 항목을 두고 막판 협상을 이어가고 있다.'),
-       (2, 0, '대통령실이 하반기 국정 운영 핵심 과제를 발표했다.'),
-       (2, 1, '민생 경제 회복과 외교 강화를 최우선 과제로 제시했다.'),
-       (3, 0, '한국은행 금융통화위원회가 기준금리를 현 수준으로 동결했다.'),
-       (3, 1, '물가 안정세와 경기 침체 우려를 동시에 고려한 결정이다.'),
-       (4, 0, '삼성전자가 3분기 영업이익 10조원을 넘어섰다.'),
-       (4, 1, '반도체 업황 회복과 스마트폰 판매 호조가 실적을 견인했다.'),
-       (5, 0, '수도권 일대를 강타한 폭우로 인한 피해 복구 작업이 진행 중이다.'),
-       (6, 0, '전국 주요 대학병원 응급실이 환자 급증으로 과부하 상태에 놓였다.') ON CONFLICT DO NOTHING;
+VALUES
+    (1, 0, '국회가 내년도 예산안 처리를 위한 본회의 일정을 조율 중이다.'),
+    (1, 1, '여야는 예산안 세부 항목을 두고 막판 협상을 이어가고 있다.'),
+    (2, 0, '대통령실이 하반기 국정 운영 핵심 과제를 발표했다.'),
+    (2, 1, '민생 경제 회복과 외교 강화를 최우선 과제로 제시했다.'),
+    (3, 0, '한국은행 금융통화위원회가 기준금리를 현 수준으로 동결했다.'),
+    (3, 1, '물가 안정세와 경기 침체 우려를 동시에 고려한 결정이다.'),
+    (4, 0, '삼성전자가 3분기 영업이익 10조원을 넘어섰다.'),
+    (4, 1, '반도체 업황 회복과 스마트폰 판매 호조가 실적을 견인했다.'),
+    (5, 0, '수도권 일대를 강타한 폭우로 인한 피해 복구 작업이 진행 중이다.'),
+    (6, 0, '전국 주요 대학병원 응급실이 환자 급증으로 과부하 상태에 놓였다.')
+ON CONFLICT DO NOTHING;
 
--- 테스트 챗 세션
 INSERT INTO chat_sessions (session_id, user_id)
-VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 1),
-       ('b1ffcd00-0d1c-5fg9-cc7e-7cc0ce491b22', 2) ON CONFLICT (session_id) DO NOTHING;
+VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 1)
+ON CONFLICT (session_id) DO NOTHING;
 
--- 테스트 대화 기록
 INSERT INTO chat_history (session_id, role, message)
-VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'user', '오늘 정치 뉴스 요약해줘'),
-       ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'assistant', '오늘 주요 정치 뉴스는 국회 예산안 처리 논의와 대통령실 국정 운영 방향 발표입니다.'),
-       ('b1ffcd00-0d1c-5fg9-cc7e-7cc0ce491b22', 'user', '삼성전자 실적 어때?'),
-       ('b1ffcd00-0d1c-5fg9-cc7e-7cc0ce491b22', 'assistant',
-        '삼성전자가 3분기 영업이익 10조원을 돌파했습니다. 반도체 업황 회복이 주요 원인입니다.') ON CONFLICT DO NOTHING;
+VALUES
+    ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'user', '오늘 정치 뉴스 요약해줘'),
+    ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'assistant', '오늘 주요 정치 뉴스는 국회 예산안 처리 논의와 대통령실 국정 운영 방향 발표입니다.')
+ON CONFLICT DO NOTHING;
