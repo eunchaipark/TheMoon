@@ -1,29 +1,14 @@
-# FastAPI
 fastapi==0.136.1
 uvicorn==0.34.3
 pydantic==2.11.5
-
-# DB
 psycopg2-binary==2.9.10
 sqlalchemy>=2.0.48
 pgvector==0.4.1
-
-# RSS 수집
 feedparser==6.0.11
-
-# 임베딩
 sentence-transformers==4.1.0
-
-# LLM  아마 나중에 수정할듯? 무료 LLM API로
-#openai==1.84.0
-#langchain==0.3.25
-#langchain-openai==0.3.18
-
-# Spark
+google-genai
 pyspark==3.5.3
-
-# 기타
 python-dotenv==1.1.0
 httpx==0.28.1
 bcrypt
-pyjwt
+PyJWT
