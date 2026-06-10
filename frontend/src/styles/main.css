@@ -20,13 +20,14 @@
 }
 
 .main__section-title {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 21px;
+  font-weight: bold;
   color: #1a1a1a;
   display: flex;
   align-items: center;
   gap: 6px;
   margin-bottom: 14px;
+  margin-left: 3px;
 }
 
 .main__section-title--star {

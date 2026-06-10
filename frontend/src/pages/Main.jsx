@@ -91,7 +91,6 @@ export default function Main() {
                 {isLoggedIn ? (
                     <section className="main__section">
                         <div className="main__section-title">
-                            <span className="main__section-title--star">★</span>
                             나를 위한 추천
                         </div>
                         <div className="main__card-grid">
@@ -112,7 +111,7 @@ export default function Main() {
 
                 <section className="main__section">
                     <div className="main__section-title">
-                        🔥 지금 화제
+                        지금 화제
                     </div>
                     <div className="main__card-grid">
                         {trending.map(article => (
@@ -123,7 +122,7 @@ export default function Main() {
 
                 <section className="main__section">
                     <div className="main__section-title">
-                        📰 최신 뉴스
+                        최신 뉴스
                     </div>
                     <div className="main__latest-list">
                         {latest.map(article => (
