@@ -11,6 +11,7 @@ x-airflow-common: &airflow-common
     - ./backend/airflow/dags:/opt/airflow/dags
     - ./backend/spark:/opt/airflow/spark
     - airflow_logs:/opt/airflow/logs
+    - airflow_db:/opt/airflow
   networks:
     - news_net
 
@@ -43,7 +44,7 @@ services:
     restart: always
     command: >
       bash -c "
-        pip install apache-airflow-providers-fab &&
+        pip install apache-airflow-providers-fab feedparser psycopg2-binary &&
         airflow db migrate &&
         airflow users create --username ${AIRFLOW_USER} --password ${AIRFLOW_PASSWORD} --firstname Admin --lastname User --role Admin --email ${AIRFLOW_EMAIL} || true &&
         airflow api-server
@@ -55,11 +56,20 @@ services:
       interval: 30s
       retries: 5
 
+  airflow-dag-processor:
+    <<: *airflow-common
+    container_name: news_airflow_dag_processor
+    restart: always
+    command: bash -c "pip install feedparser psycopg2-binary && airflow db migrate && airflow dag-processor"
+    depends_on:
+      airflow-webserver:
+        condition: service_healthy
+
   airflow-scheduler:
     <<: *airflow-common
     container_name: news_airflow_scheduler
     restart: always
-    command: bash -c "airflow db migrate && airflow scheduler"
+    command: bash -c "pip install feedparser psycopg2-binary && airflow db migrate && airflow scheduler"
     depends_on:
       airflow-webserver:
         condition: service_healthy
@@ -116,6 +126,7 @@ services:
 volumes:
   postgres_data:
   airflow_logs:
+  airflow_db:
 
 networks:
   news_net:
