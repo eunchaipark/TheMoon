@@ -1,5 +1,3 @@
-# backend/spark/Dockerfile
-
 FROM apache/spark:3.5.3-python3
 
 USER root
@@ -13,10 +11,6 @@ RUN pip install --no-cache-dir \
 
 RUN curl -L -o /opt/spark/jars/postgresql-42.7.3.jar \
     https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
-
-ENV HF_HOME=/tmp/huggingface
-ENV TRANSFORMERS_CACHE=/tmp/huggingface
-RUN mkdir -p /tmp/huggingface && chmod 777 /tmp/huggingface
 
 COPY jobs/ /opt/spark/jobs/
 
