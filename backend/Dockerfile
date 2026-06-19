@@ -1,23 +1,22 @@
-# backend/spark/Dockerfile
+FROM python:3.12-slim
 
-FROM apache/spark:3.5.3-python3
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV PYTHONIOENCODING=utf-8
+ENV PYTHONUNBUFFERED=1
 
-USER root
+WORKDIR /app
 
-RUN pip install --no-cache-dir \
-    sentence-transformers==3.2.1 \
-    psycopg2-binary==2.9.10 \
-    numpy \
-    && pip install --no-cache-dir \
-    torch --index-url https://download.pytorch.org/whl/cpu
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN curl -L -o /opt/spark/jars/postgresql-42.7.3.jar \
-    https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-ENV HF_HOME=/tmp/huggingface
-ENV TRANSFORMERS_CACHE=/tmp/huggingface
-RUN mkdir -p /tmp/huggingface && chmod 777 /tmp/huggingface
+COPY . .
 
-COPY jobs/ /opt/spark/jobs/
+EXPOSE 8000
 
-USER 185
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

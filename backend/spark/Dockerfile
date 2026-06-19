@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir \
     && pip install --no-cache-dir \
     torch --index-url https://download.pytorch.org/whl/cpu
 
-RUN curl -L -o /opt/spark/jars/postgresql-42.7.3.jar \
+RUN curl -L --retry 3 --retry-delay 5 -o /opt/spark/jars/postgresql-42.7.3.jar \
     https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
 
 COPY jobs/ /opt/spark/jobs/

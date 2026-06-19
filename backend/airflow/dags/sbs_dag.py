@@ -1,4 +1,4 @@
-from airflow.sdk import dag, task
+from airflow.decorators import dag, task
 from datetime import datetime, timedelta
 from common import collect_rss_sbs
 

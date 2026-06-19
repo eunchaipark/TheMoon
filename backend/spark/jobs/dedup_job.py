@@ -23,24 +23,34 @@ POSTGRES_PASS = os.getenv("POSTGRES_PASSWORD", "news_password")
 JDBC_URL      = f"jdbc:postgresql://{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 JDBC_PROPS    = {"user": POSTGRES_USER, "password": POSTGRES_PASS, "driver": "org.postgresql.Driver"}
 
-# 중복 판단 코사인 유사도 임계값
-SIMILARITY_THRESHOLD = float(os.getenv("DEDUP_THRESHOLD", "0.85"))
-# 비교 대상 시간 윈도우 (시간 단위)
+SIMILARITY_THRESHOLD = float(os.getenv("DEDUP_THRESHOLD", "0.75"))
 TIME_WINDOW_HOURS    = int(os.getenv("DEDUP_WINDOW_HOURS", "24"))
 
 
-
 def detect_duplicates_in_category(rows: list) -> list:
+    """
+    단일 카테고리 내 기사들의 중복을 감지.
+    같은 source_id끼리는 비교 제외 (동일 언론사 내 중복 방지).
+
+    Args:
+        rows: [(article_id, published_at, embedding_list, source_id), ...]
+
+    Returns:
+        [(duplicate_article_id, representative_article_id), ...]
+    """
     import numpy as np
 
     if len(rows) < 2:
         return []
 
+    # published_at 기준 오름차순 정렬 (오래된 것이 representative)
     rows_sorted = sorted(rows, key=lambda r: r[1])
 
     ids        = [r[0] for r in rows_sorted]
+    source_ids = [r[3] for r in rows_sorted]
     embeddings = np.array([r[2] for r in rows_sorted], dtype=np.float32)
 
+    # 이미 정규화된 임베딩이므로 내적 = 코사인 유사도
     sim_matrix = embeddings @ embeddings.T
 
     duplicates = []
@@ -51,6 +61,9 @@ def detect_duplicates_in_category(rows: list) -> list:
             continue
         for j in range(i + 1, len(ids)):
             if is_duplicate[j]:
+                continue
+            # 같은 언론사(source_id)끼리는 중복 비교 제외
+            if source_ids[i] == source_ids[j]:
                 continue
             if sim_matrix[i, j] >= SIMILARITY_THRESHOLD:
                 # j가 i의 중복 (i가 더 오래된 대표)
@@ -89,12 +102,14 @@ def apply_dedup_results(duplicates: list):
 def run(spark: SparkSession):
     logger.info("=== Dedup Job 시작 ===")
 
+
     articles_df = spark.read.jdbc(
         url=JDBC_URL,
         table=f"""(
             SELECT
                 a.article_id,
                 a.category_id,
+                a.source_id,
                 a.published_at,
                 ac.embedding::text AS embedding_text
             FROM articles a
@@ -115,6 +130,7 @@ def run(spark: SparkSession):
     if count < 2:
         logger.info("비교 대상 기사 부족. 종료.")
         return {"duplicates_found": 0}
+
 
     def parse_embedding(emb_text: str):
         if not emb_text:
@@ -141,12 +157,12 @@ def run(spark: SparkSession):
         cat_rows = (
             articles_df
             .filter(F.col("category_id") == cat_id)
-            .select("article_id", "published_at", "embedding")
+            .select("article_id", "published_at", "embedding", "source_id")
             .collect()
         )
 
         rows_data = [
-            (row.article_id, row.published_at, row.embedding)
+            (row.article_id, row.published_at, row.embedding, row.source_id)
             for row in cat_rows
         ]
 

@@ -9,15 +9,19 @@ api.interceptors.request.use(config => {
   return config
 })
 
-export const sendMessage = async (question) => {
-  let sessionId = localStorage.getItem('session_id')
-  if (!sessionId) {
-    sessionId = crypto.randomUUID()
-    localStorage.setItem('session_id', sessionId)
-  }
-  const { data } = await api.post('/chat', {
-    question,
-    session_id: sessionId
-  })
+export const sendMessage = async (question, sessionId) => {
+  const { data } = await api.post('/chat', { question, session_id: sessionId })
   return data
 }
+
+export const getSessions = async () => {
+  const { data } = await api.post('/chat/sessions')
+  return data
+}
+
+export const getHistory = async (sessionId) => {
+  const { data } = await api.get(`/chat/history/${sessionId}`)
+  return data
+}
+
+export const createSessionId = () => crypto.randomUUID()

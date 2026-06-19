@@ -9,11 +9,11 @@ api.interceptors.request.use(config => {
   return config
 })
 
-export const getRecommendedFeed = async () => {
+export const getRecommendedFeed = async (page = 1, excludeIds = []) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const { data } = await api.get('/feed/articles', {
-    params: { user_id: user.user_id }
-  })
+  const params = { user_id: user.user_id, page, limit: 12 }
+  if (excludeIds.length > 0) params.exclude_ids = excludeIds.join(',')
+  const { data } = await api.get('/feed/recommended', { params })
   return data
 }
 
@@ -22,10 +22,15 @@ export const getTrendingFeed = async () => {
   return data
 }
 
-export const getLatestFeed = async (page = 1, limit = 20) => {
-  const { data } = await api.get('/feed/articles', {
-    params: { page, limit }
-  })
+export const getLatestFeed = async (page = 1, limit = 20, categoryId = null) => {
+  const params = { page, limit }
+  if (categoryId) params.category_id = categoryId
+  const { data } = await api.get('/feed/articles', { params })
+  return data
+}
+
+export const getOtherPressFeed = async (articleId) => {
+  const { data } = await api.get(`/feed/trending/${articleId}/others`)
   return data
 }
 

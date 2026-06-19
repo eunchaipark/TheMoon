@@ -32,22 +32,37 @@ def format_article(article: dict) -> dict:
         "source_name":   article["source_name"],
         "press_count":   article.get("press_count"),
         "similarity":    article.get("similarity"),
+        "category_weight": article.get("category_weight"),
     }
 
 
-def get_latest_feed(page: int = 1, limit: int = 20) -> list[dict]:
-    articles = feed_repo.get_latest_articles(page, limit)
+def get_latest_feed(page: int = 1, limit: int = 20, category_id: int = None) -> list[dict]:
+    articles = feed_repo.get_latest_articles_by_category(page, limit, category_id)
     return [format_article(a) for a in articles]
 
 
-def get_recommended_feed(user_id: int) -> list[dict]:
-    articles = feed_repo.get_recommended_articles(user_id)
+def get_recommended_feed(user_id: int, limit: int = 9, page: int = 1, exclude_ids: list = None) -> list[dict]:
+    articles = feed_repo.get_recommended_articles(user_id, limit, page, exclude_ids or [])
     return [format_article(a) for a in articles]
 
 
-def get_trending_feed() -> list[dict]:
-    articles = feed_repo.get_trending_articles()
+def get_trending_feed(limit: int = 9) -> list[dict]:
+    articles = feed_repo.get_trending_articles(limit)
     return [format_article(a) for a in articles]
+
+
+def get_duplicate_articles(article_id: int) -> list[dict]:
+    articles = feed_repo.get_duplicate_articles(article_id)
+    return [
+        {
+            "article_id":   a["article_id"],
+            "title":        a["title"],
+            "url":          a["url"],
+            "source_name":  a["source_name"],
+            "published_ago": format_published_ago(a["published_at"]) if a["published_at"] else "",
+        }
+        for a in articles
+    ]
 
 
 async def sse_feed_generator(user_id: int) -> AsyncGenerator[str, None]:
