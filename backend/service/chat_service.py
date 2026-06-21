@@ -5,9 +5,10 @@ from rag import chatbot
 def chat(user_id: int, session_id: str, question: str) -> dict:
     chat_repo.get_or_create_session(user_id, session_id)
     history = chat_repo.get_history(session_id, limit=6)
+    chat_repo.save_message(session_id, "user", question)
+
     result = chatbot.answer(question, user_id, history)
 
-    chat_repo.save_message(session_id, "user", question)
     assistant_chat_id = chat_repo.save_message(session_id, "assistant", result['answer'])
     if result['sources']:
         chat_repo.save_sources(assistant_chat_id, result['sources'])
