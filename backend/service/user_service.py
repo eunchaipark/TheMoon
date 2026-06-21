@@ -1,6 +1,6 @@
 import jwt
 import bcrypt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from repository import user_repo
 from core.config import settings
 
@@ -20,7 +20,7 @@ def create_token(user_id: int, email: str) -> str:
     payload = {
         "user_id": user_id,
         "email": email,
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRE_HOURS)
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS)
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
