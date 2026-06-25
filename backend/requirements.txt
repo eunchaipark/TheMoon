@@ -12,3 +12,12 @@ python-dotenv==1.1.0
 httpx==0.28.1
 bcrypt
 PyJWT
+
+langchain==0.3.25
+langchain-google-genai==2.1.4
+langchain-community==0.3.24
+langgraph==0.2.60
+langsmith==0.2.10
+tavily-python==0.5.1
+
+redis==5.0.8
