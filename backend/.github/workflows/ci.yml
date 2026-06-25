@@ -1,0 +1,208 @@
+name: TheMoon CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ── 1. 코드 품질 검사 ──────────────────────
+  lint:
+    name: 코드 품질 검사
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 의존성 설치
+        run: |
+          pip install flake8 black isort
+          pip install -r backend/requirements.txt
+
+      - name: Black 포맷 검사
+        run: black --check backend/
+
+      - name: Import 정렬 검사
+        run: isort --check-only backend/
+
+      - name: Flake8 린트
+        run: flake8 backend/ --max-line-length=120 --exclude=__pycache__
+
+  # ── 2. 단위 테스트 ────────────────────────
+  test:
+    name: 단위 테스트
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: news_rag_test
+          POSTGRES_USER: news_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-retries 5
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: news_rag_test
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: test_password
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      EMBED_MODEL: jhgan/ko-sroberta-multitask
+      AIRFLOW_SECRET_KEY: test-secret-key
+      LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+      LANGCHAIN_PROJECT: TheMoon-CI
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 의존성 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+
+      - name: 의존성 설치
+        run: pip install -r backend/requirements.txt pytest pytest-asyncio
+
+      - name: DB 스키마 적용
+        run: |
+          PGPASSWORD=test_password psql -h localhost -U news_user -d news_rag_test -f db/init.sql
+
+      - name: 단위 테스트 실행
+        run: |
+          cd backend
+          pytest tests/ -v --tb=short
+
+  # ── 3. Router 정확도 평가 ─────────────────
+  evaluate:
+    name: 에이전트 품질 평가
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: news_rag_test
+          POSTGRES_USER: news_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_DB: news_rag_test
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: test_password
+      REDIS_HOST: localhost
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      EMBED_MODEL: jhgan/ko-sroberta-multitask
+      AIRFLOW_SECRET_KEY: test-secret-key
+      LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+      LANGCHAIN_PROJECT: TheMoon-CI
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 의존성 설치
+        run: pip install -r backend/requirements.txt
+
+      - name: DB 스키마 적용
+        run: |
+          PGPASSWORD=test_password psql -h localhost -U news_user -d news_rag_test -f db/init.sql
+
+      - name: Router 정확도 평가
+        run: |
+          cd backend
+          python scripts/evaluate_agent.py --router-only
+        continue-on-error: true  # 평가 실패해도 배포는 진행
+
+      - name: LangSmith 결과 업로드
+        run: echo "LangSmith 대시보드에서 확인: https://smith.langchain.com"
+
+  # ── 4. Docker 빌드 검증 ───────────────────
+  build:
+    name: Docker 빌드 검증
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      - name: FastAPI 이미지 빌드 테스트
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          dockerfile: ./backend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Frontend 빌드 테스트
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+  # ── 5. main 브랜치 배포 알림 ─────────────
+  notify:
+    name: 배포 완료 알림
+    runs-on: ubuntu-latest
+    needs: [ lint, test, build ]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: 배포 성공 알림
+        run: |
+          echo "✅ TheMoon CI/CD 완료"
+          echo "브랜치: ${{ github.ref_name }}"
+          echo "커밋: ${{ github.sha }}"
+          echo "작성자: ${{ github.actor }}"
