@@ -290,3 +290,27 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* AI Agent 배지 */
+.chatbot__header-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #e6f1fb;
+  color: #185fa5;
+  border: 1px solid #b5d4f4;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+/* 스트리밍 커서 깜빡임 */
+.chatbot__cursor {
+  display: inline-block;
+  animation: blink 0.7s infinite;
+  color: #185fa5;
+  font-weight: bold;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
