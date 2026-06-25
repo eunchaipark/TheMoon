@@ -14,6 +14,47 @@ export const sendMessage = async (question, sessionId) => {
   return data
 }
 
+// 스트리밍 메시지 전송
+export const sendMessageStream = async (question, sessionId, onChunk, onDone) => {
+  const token = localStorage.getItem('token')
+
+  const response = await fetch(`${BASE_URL}/chat/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ question, session_id: sessionId }),
+  })
+
+  if (!response.ok) throw new Error('스트리밍 요청 실패')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    const text = decoder.decode(value)
+    const lines = text.split('\n')
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const data = line.slice(6)
+      if (data === '[DONE]') {
+        onDone?.()
+        return
+      }
+      try {
+        const parsed = JSON.parse(data)
+        if (parsed.chunk) onChunk(parsed.chunk)
+        if (parsed.error) throw new Error(parsed.error)
+      } catch {}
+    }
+  }
+}
+
 export const getSessions = async () => {
   const { data } = await api.post('/chat/sessions')
   return data
