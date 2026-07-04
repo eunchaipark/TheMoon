@@ -1,7 +1,3 @@
-"""
-벤치마크용 더미 기사 대량 생성 스크립트
-"""
-
 import sys
 import os
 import random

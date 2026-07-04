@@ -1,8 +1,3 @@
-"""
-순수 Python 임베딩 벤치마크 스크립트
-Spark와 처리 시간 비교용
-"""
-
 import sys
 import os
 import re
