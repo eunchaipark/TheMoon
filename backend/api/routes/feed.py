@@ -13,11 +13,7 @@ def get_recommended(
     limit: int = Query(default=12, ge=1, le=50),
     exclude_ids: Optional[str] = Query(default=None, description="제외할 article_id 목록 (콤마 구분)"),
 ):
-    """
-    카테고리 가중치 비율 기반 개인화 추천.
-    - page: 더보기
-    - exclude_ids: 1,2,3 형태로 전달하면 해당 기사 제외 (새로고침)
-    """
+    # 카테고리 가중치 비율 기반 개인화 추천
     parsed_exclude = []
     if exclude_ids:
         try:
@@ -44,13 +40,13 @@ def get_trending():
 
 @router.get("/trending/{article_id}/others")
 def get_other_press(article_id: int):
-    """지금 화제 - 다른 언론사 기사 목록."""
+    # 지금 화제 - 다른 언론사 기사 목록
     return feed_service.get_duplicate_articles(article_id)
 
 
 @router.get("")
 def feed_sse(user_id: int = Query(..., description="유저 ID")):
-    """SSE 실시간 뉴스 푸시."""
+    # SSE 실시간 뉴스 푸시
     return StreamingResponse(
         feed_service.sse_feed_generator(user_id),
         media_type="text/event-stream",
