@@ -28,16 +28,8 @@ TIME_WINDOW_HOURS    = int(os.getenv("DEDUP_WINDOW_HOURS", "24"))
 
 
 def detect_duplicates_in_category(rows: list) -> list:
-    """
-    단일 카테고리 내 기사들의 중복을 감지.
-    같은 source_id끼리는 비교 제외 (동일 언론사 내 중복 방지).
+    #단일 카테고리 내 기사들의 중복을 감지.
 
-    Args:
-        rows: [(article_id, published_at, embedding_list, source_id), ...]
-
-    Returns:
-        [(duplicate_article_id, representative_article_id), ...]
-    """
     import numpy as np
 
     if len(rows) < 2:

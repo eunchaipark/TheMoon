@@ -1,7 +1,3 @@
-"""
-언론사 RSS 수집 공통 함수
-모든 언론사 DAG에서 공유하는 로직
-"""
 import re
 import logging
 import feedparser
@@ -68,7 +64,7 @@ def save_article(source_id: int, category_id: int, title: str,
 
 
 def collect_rss(source_id: int, category_id: int, rss_url: str) -> dict:
-    """연합뉴스, 매일경제 공통 — summary 필드 사용"""
+    # 연합뉴스, 매일경제 공통 — summary 필드 사용
     logger.info(f"RSS 수집 시작: {rss_url}")
     feed = feedparser.parse(rss_url)
 
@@ -97,7 +93,7 @@ def collect_rss(source_id: int, category_id: int, rss_url: str) -> dict:
 
 
 def collect_rss_sbs(source_id: int, category_id: int, rss_url: str) -> dict:
-    """SBS 전용 — content 필드 우선 사용"""
+    # SBS 전용 — content 필드 우선 사용
     logger.info(f"SBS RSS 수집 시작: {rss_url}")
     feed = feedparser.parse(rss_url)
 
