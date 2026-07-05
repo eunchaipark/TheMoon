@@ -1,10 +1,12 @@
+from typing import AsyncGenerator
 from repository import chat_repo
 from rag import chatbot
 
 
 def chat(user_id: int, session_id: str, question: str) -> dict:
     chat_repo.get_or_create_session(user_id, session_id)
-    history = chat_repo.get_history(session_id, limit=6)
+    history = chat_repo.get_history(session_id, limit=3)
+
     chat_repo.save_message(session_id, "user", question)
 
     result = chatbot.answer(question, user_id, history)
@@ -14,6 +16,21 @@ def chat(user_id: int, session_id: str, question: str) -> dict:
         chat_repo.save_sources(assistant_chat_id, result['sources'])
 
     return result
+
+
+async def chat_stream(user_id: int, session_id: str, question: str) -> AsyncGenerator[str, None]:
+    chat_repo.get_or_create_session(user_id, session_id)
+    history = chat_repo.get_history(session_id, limit=3)
+
+    chat_repo.save_message(session_id, "user", question)
+
+    full_answer = ""
+    async for chunk in chatbot.answer_stream(question, user_id, history):
+        full_answer += chunk
+        yield chunk
+
+    # 전체 답변 저장
+    chat_repo.save_message(session_id, "assistant", full_answer)
 
 
 def get_history(session_id: str) -> list[dict]:
