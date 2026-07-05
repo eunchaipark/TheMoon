@@ -57,3 +57,42 @@ def retrieve(query: str, user_id: int, top_k: int = 5) -> list[dict]:
         return results
     finally:
         conn.close()
+
+
+def retrieve_by_category(query: str, category_name: str, top_k: int = 5) -> list[dict]:
+    model = get_model()
+    query_vector = model.encode(query).tolist()
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT ac.chunk_id,
+                   ac.content,
+                   a.article_id,
+                   a.title,
+                   a.url,
+                   a.published_at,
+                   c.name                            AS category_name,
+                   ns.name                           AS source_name,
+                   1 - (ac.embedding <=> %s::vector) AS similarity
+            FROM article_chunks ac
+                     JOIN articles a ON ac.article_id = a.article_id
+                     JOIN categories c ON a.category_id = c.category_id
+                     JOIN news_sources ns ON a.source_id = ns.source_id
+            WHERE ac.embedding IS NOT NULL
+              AND a.is_processed = true
+              AND a.is_duplicate = false
+              AND c.name = %s
+            ORDER BY ac.embedding <=> %s::vector
+            LIMIT %s
+        """, (str(query_vector), category_name, str(query_vector), top_k))
+
+        rows = cur.fetchall()
+        cols = [desc[0] for desc in cur.description]
+        results = [dict(zip(cols, row)) for row in rows]
+
+        logger.debug(f"카테고리 검색: query={query[:30]}, category={category_name}, 결과={len(results)}건")
+        return results
+    finally:
+        conn.close()
