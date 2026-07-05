@@ -14,7 +14,7 @@ export const sendMessage = async (question, sessionId) => {
   return data
 }
 
-// 스트리밍 메시지 전송
+// Kafka + SSE 스트리밍
 export const sendMessageStream = async (question, sessionId, onChunk, onDone) => {
   const token = localStorage.getItem('token')
 
@@ -48,7 +48,12 @@ export const sendMessageStream = async (question, sessionId, onChunk, onDone) =>
       }
       try {
         const parsed = JSON.parse(data)
-        if (parsed.chunk) onChunk(parsed.chunk)
+        // 처리 중 메시지는 무시
+        if (parsed.status === 'processing') continue
+        // 청크 누적
+        if (parsed.chunk && parsed.status !== 'processing') onChunk(parsed.chunk)
+        // 완료
+        if (parsed.status === 'done') onDone?.()
         if (parsed.error) throw new Error(parsed.error)
       } catch {}
     }
