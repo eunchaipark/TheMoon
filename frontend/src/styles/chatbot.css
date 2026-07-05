@@ -314,3 +314,61 @@
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
 }
+
+/* 마크다운 렌더링 스타일 */
+.chatbot__message-text p {
+  margin: 0 0 6px;
+  line-height: 1.6;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+.chatbot__message-text p:last-child {
+  margin-bottom: 0;
+}
+
+.chatbot__message-text strong {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.chatbot__message-text ul,
+.chatbot__message-text ol {
+  margin: 4px 0 6px;
+  padding-left: 18px;
+}
+
+.chatbot__message-text li {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #1a1a1a;
+  margin-bottom: 2px;
+}
+
+.chatbot__message-text h1,
+.chatbot__message-text h2,
+.chatbot__message-text h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 8px 0 4px;
+}
+
+.chatbot__message-text a {
+  color: #185fa5;
+  text-decoration: underline;
+  font-size: 13px;
+}
+
+.chatbot__message-text code {
+  background: #f0f0f0;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.chatbot__message-text hr {
+  border: none;
+  border-top: 0.5px solid rgba(0,0,0,0.1);
+  margin: 8px 0;
+}

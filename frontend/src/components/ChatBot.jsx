@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { sendMessageStream, getSessions, getHistory, createSessionId } from '../api/chat'
 import { useAuthStore } from '../store/authStore'
+import ReactMarkdown from 'react-markdown'
 import '../styles/chatbot.css'
 
 function groupSessionsByDate(sessions) {
@@ -108,7 +109,7 @@ export default function ChatBot({ isOpen, onClose }) {
     setMessages(prev => [...prev, { role: 'user', text: question }])
     setLoading(true)
 
-    // 스트리밍 메시지 placeholder 추가
+    // 스트리밍 메시지 placeholder 추가 (빈 텍스트로 시작)
     setMessages(prev => [...prev, { role: 'assistant', text: '', streaming: true }])
 
     try {
@@ -116,6 +117,7 @@ export default function ChatBot({ isOpen, onClose }) {
         question,
         activeSession,
         (chunk) => {
+          if (chunk === '답변을 생성하고 있어요...') return
           // 청크 단위로 마지막 메시지에 누적
           setMessages(prev => {
             const updated = [...prev]
@@ -221,10 +223,14 @@ export default function ChatBot({ isOpen, onClose }) {
           <div className="chatbot__messages">
             {messages.map((msg, i) => (
               <div key={i} className={`chatbot__message--${msg.role}`}>
-                <p className={`chatbot__message-text${msg.role === 'user' ? '--user' : ''}`}>
-                  {msg.text}
-                  {msg.streaming && <span className="chatbot__cursor">▋</span>}
-                </p>
+                {msg.role === 'user' ? (
+                  <p className="chatbot__message-text--user">{msg.text}</p>
+                ) : (
+                  <div className="chatbot__message-text">
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    {msg.streaming && <span className="chatbot__cursor">▋</span>}
+                  </div>
+                )}
                 {msg.sources && msg.sources.length > 0 && (
                   <div className="chatbot__message-sources">
                     <span className="chatbot__sources-label">출처</span>
