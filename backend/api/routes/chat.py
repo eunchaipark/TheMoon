@@ -20,7 +20,6 @@ class ChatRequest(BaseModel):
     session_id: str
 
 
-# Kafka 사용 가능 여부 확인
 def is_kafka_available() -> bool:
     try:
         from worker.kafka_producer import get_producer
@@ -31,7 +30,6 @@ def is_kafka_available() -> bool:
 
 
 
-# POST /chat - 기존 동기 방식 (폴백용)
 @router.post("")
 def chat(body: ChatRequest, authorization: str = Header(...)):
     """동기 응답 - Kafka 미연결 시 폴백"""
@@ -47,7 +45,6 @@ def chat(body: ChatRequest, authorization: str = Header(...)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# POST /chat/stream - Kafka + SSE 스트리밍
 @router.post("/stream")
 async def chat_stream(body: ChatRequest, authorization: str = Header(...)):
     try:
@@ -58,7 +55,6 @@ async def chat_stream(body: ChatRequest, authorization: str = Header(...)):
 
     user_id = payload['user_id']
 
-    # 대화 히스토리 조회
     history = chat_repo.get_history(body.session_id, limit=3)
     history_data = [{"role": h["role"], "message": h["message"]} for h in history]
 
@@ -87,7 +83,6 @@ async def chat_stream(body: ChatRequest, authorization: str = Header(...)):
             print(f"[SSE] Kafka 확인 실패: {e}")
             kafka_ok = False
 
-        # Kafka 사용 가능하면 Kafka로, 아니면 직접 처리
         if kafka_ok:
             from worker.kafka_producer import publish_chat_request
 
@@ -98,7 +93,6 @@ async def chat_stream(body: ChatRequest, authorization: str = Header(...)):
                 history=history_data,
             )
 
-            # 대기 중 메시지 전송
             yield f"data: {json.dumps({'chunk': '답변을 생성하고 있어요...', 'status': 'processing'}, ensure_ascii=False)}\n\n"
 
             # Redis 폴링
@@ -135,11 +129,9 @@ async def chat_stream(body: ChatRequest, authorization: str = Header(...)):
                         yield f"data: {json.dumps({'chunk': chunk, 'status': 'streaming'}, ensure_ascii=False)}\n\n"
                         await asyncio.sleep(0.03)
 
-                    # 출처 전송
                     yield f"data: {json.dumps({'sources': sources, 'status': 'done'}, ensure_ascii=False)}\n\n"
                     yield "data: [DONE]\n\n"
 
-                    # 결과 삭제
                     r.delete(result_key)
                     return
 
@@ -155,7 +147,6 @@ async def chat_stream(body: ChatRequest, authorization: str = Header(...)):
             yield "data: [DONE]\n\n"
 
         else:
-            # Kafka 미연결 시 기존 스트리밍 방식으로 폴백
             logger.warning("Kafka 미연결 - 직접 스트리밍으로 폴백")
             try:
                 async for chunk in chat_service.chat_stream(

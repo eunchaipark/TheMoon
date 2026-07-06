@@ -3,7 +3,6 @@ import sys
 import re
 import logging
 from pyspark.sql import SparkSession
-from pyspark.sql import functions as F
 
 logging.basicConfig(
     level=logging.INFO,

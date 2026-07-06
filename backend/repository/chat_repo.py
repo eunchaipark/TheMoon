@@ -1,4 +1,4 @@
-from core.database import get_connection
+from core.database import get_connection, rows_to_dicts
 
 def get_or_create_session(user_id: int, session_id: str) -> str:
     conn = get_connection()
@@ -27,9 +27,7 @@ def get_history(session_id: str, limit: int = 6) -> list[dict]:
                     ORDER BY created_at DESC
                         LIMIT %s
                     """, (session_id, limit))
-        rows = cur.fetchall()
-        cols = [desc[0] for desc in cur.description]
-        return list(reversed([dict(zip(cols, row)) for row in rows]))
+        return list(reversed(rows_to_dicts(cur)))
     finally:
         conn.close()
 
@@ -72,8 +70,6 @@ def get_sessions(user_id: int) -> list[dict]:
                     WHERE user_id = %s
                     ORDER BY updated_at DESC
                     """, (user_id,))
-        rows = cur.fetchall()
-        cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in rows]
+        return rows_to_dicts(cur)
     finally:
         conn.close()

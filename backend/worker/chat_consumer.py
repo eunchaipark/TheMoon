@@ -61,27 +61,23 @@ def process_message(msg: dict, r: redis.Redis) -> None:
     result_key = f"chat_result:{request_id}"
 
     try:
-        # 처리 중 상태 저장
         r.setex(result_key, RESULT_TTL, json.dumps({
             "status": "processing",
             "answer": "",
             "sources": [],
         }))
 
-        # LangGraph 에이전트 실행
         from rag.agent import answer as agent_answer
         from repository import chat_repo
 
         result = agent_answer(question, user_id, history)
 
-        # DB에 대화 저장
         chat_repo.get_or_create_session(user_id, session_id)
         chat_repo.save_message(session_id, "user", question)
         assistant_chat_id = chat_repo.save_message(session_id, "assistant", result["answer"])
         if result.get("sources"):
             chat_repo.save_sources(assistant_chat_id, result["sources"])
 
-        # Redis에 결과 저장
         payload = json.dumps({
             "status": "done",
             "answer": result["answer"],

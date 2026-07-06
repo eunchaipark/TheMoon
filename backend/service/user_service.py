@@ -29,6 +29,18 @@ def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
 
 
+def _auth_response(user: dict) -> dict:
+    token = create_token(user['user_id'], user['email'])
+    return {
+        "user": {
+            "user_id": user['user_id'],
+            "email": user['email'],
+            "nickname": user['nickname'],
+        },
+        "token": token
+    }
+
+
 def register(email: str, password: str, nickname: str, category_prefs: list[dict]) -> dict:
     existing = user_repo.get_user_by_email(email)
     if existing:
@@ -40,15 +52,7 @@ def register(email: str, password: str, nickname: str, category_prefs: list[dict
     if category_prefs:
         user_repo.upsert_category_prefs(user['user_id'], category_prefs)
 
-    token = create_token(user['user_id'], user['email'])
-    return {
-        "user": {
-            "user_id": user['user_id'],
-            "email": user['email'],
-            "nickname": user['nickname'],
-        },
-        "token": token
-    }
+    return _auth_response(user)
 
 
 def login(email: str, password: str) -> dict:
@@ -59,15 +63,7 @@ def login(email: str, password: str) -> dict:
     if not verify_password(password, user['password_hash']):
         raise ValueError("이메일 또는 비밀번호가 올바르지 않아요")
 
-    token = create_token(user['user_id'], user['email'])
-    return {
-        "user": {
-            "user_id": user['user_id'],
-            "email": user['email'],
-            "nickname": user['nickname'],
-        },
-        "token": token
-    }
+    return _auth_response(user)
 
 
 def get_category_prefs(user_id: int) -> list[dict]:

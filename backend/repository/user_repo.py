@@ -1,4 +1,4 @@
-from core.database import get_connection
+from core.database import get_connection, rows_to_dicts
 
 
 def get_user_by_email(email: str) -> dict | None:
@@ -46,9 +46,7 @@ def get_category_prefs(user_id: int) -> list[dict]:
                     WHERE ucp.user_id = %s
                     ORDER BY ucp.category_id
                     """, (user_id,))
-        rows = cur.fetchall()
-        cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in rows]
+        return rows_to_dicts(cur)
     finally:
         conn.close()
 

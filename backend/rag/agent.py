@@ -17,7 +17,7 @@ from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langgraph.graph import StateGraph, END
 import redis
 
-from rag.retrieve import retrieve as vector_retrieve, retrieve_by_category
+from rag.retrieve import retrieve as vector_retrieve
 from repository import feed_repo
 from core.config import settings
 
@@ -350,8 +350,6 @@ def router_node(state: AgentState) -> AgentState:
     return {**state, "route": route}
 
 
-# Slot Filling 파싱 로직 강화
-# 코드블록 제거 + 중괄호 기준 JSON 추출
 def slot_filling_node(state: AgentState) -> AgentState:
     import json
 
@@ -364,11 +362,9 @@ def slot_filling_node(state: AgentState) -> AgentState:
     try:
         text = result.content.strip()
 
-        # 코드블록 제거
         if "```" in text:
             text = re.sub(r"```(?:json)?", "", text).strip()
 
-        # 중괄호 기준으로 JSON 부분만 추출
         match = re.search(r'\{.*?\}', text, re.DOTALL)
         if match:
             text = match.group(0)
@@ -489,8 +485,7 @@ def summary_node(state: AgentState) -> AgentState:
     return {**state, "final_answer": result.content}
 
 
-# [수정 3] Validate Node
-# retry_count 증가 로직 추가 → 무한 재시도 방지
+# retry_count 증가 → 무한 재시도 방지
 def validate_node(state: AgentState) -> AgentState:
     answer = state.get("final_answer", "")
     score = 0.0
@@ -519,7 +514,6 @@ def check_slot(state: AgentState) -> str:
     return route
 
 
-# check_quality
 # 원래 route로 재시도 → 분석 질문이 rag로 잘못 재시도되던 문제 해결
 def check_quality(state: AgentState) -> str:
     if state.get("quality_score", 0) < 0.4 and state.get("retry_count", 0) < 1:
@@ -561,6 +555,23 @@ def convert_history(history: list[dict]) -> list[BaseMessage]:
     return messages
 
 
+def _build_initial_state(query: str, user_id: int, history: list[dict]) -> AgentState:
+    return AgentState(
+        question=query,
+        user_id=user_id,
+        chat_history=convert_history(history),
+        route="rag",
+        slot_filled=True,
+        slot_question=None,
+        missing_info=None,
+        agent_answer="",
+        final_answer="",
+        quality_score=0.0,
+        retry_count=0,
+        sources=[],
+    )
+
+
 # 그래프 빌드
 def build_graph():
     graph = StateGraph(AgentState)
@@ -600,7 +611,6 @@ def build_graph():
 
     graph.add_edge("summary", "validate")
 
-    # [수정 4] 원래 route로 재시도
     graph.add_conditional_edges("validate", check_quality, {
         "done":     END,
         "rag":      "rag",
@@ -631,20 +641,7 @@ def answer(query: str, user_id: int, history: list[dict]) -> dict:
         return {"answer": duplicated, "sources": []}
 
     graph = get_graph()
-    initial_state = AgentState(
-        question=query,
-        user_id=user_id,
-        chat_history=convert_history(history),
-        route="rag",
-        slot_filled=True,
-        slot_question=None,
-        missing_info=None,
-        agent_answer="",
-        final_answer="",
-        quality_score=0.0,
-        retry_count=0,
-        sources=[],
-    )
+    initial_state = _build_initial_state(query, user_id, history)
     try:
         result = graph.invoke(initial_state)
         final = result.get("final_answer") or result.get("agent_answer", "답변을 생성하지 못했습니다.")
@@ -666,20 +663,7 @@ async def answer_stream(query: str, user_id: int, history: list[dict]) -> AsyncG
         return
 
     graph = get_graph()
-    initial_state = AgentState(
-        question=query,
-        user_id=user_id,
-        chat_history=convert_history(history),
-        route="rag",
-        slot_filled=True,
-        slot_question=None,
-        missing_info=None,
-        agent_answer="",
-        final_answer="",
-        quality_score=0.0,
-        retry_count=0,
-        sources=[],
-    )
+    initial_state = _build_initial_state(query, user_id, history)
     try:
         async for event in graph.astream_events(initial_state, version="v1"):
             kind = event.get("event")

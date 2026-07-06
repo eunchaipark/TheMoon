@@ -1,5 +1,5 @@
 from datetime import datetime
-from core.database import get_connection
+from core.database import get_connection, rows_to_dicts
 
 
 def get_latest_articles(page: int = 1, limit: int = 20) -> list[dict]:
@@ -24,9 +24,7 @@ def get_latest_articles(page: int = 1, limit: int = 20) -> list[dict]:
             ORDER BY a.published_at DESC
             LIMIT %s OFFSET %s
         """, (limit, offset))
-        rows = cur.fetchall()
-        cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in rows]
+        return rows_to_dicts(cur)
     finally:
         conn.close()
 
@@ -73,9 +71,7 @@ def get_latest_articles_by_category(page: int = 1, limit: int = 20, category_id:
                 ORDER BY a.published_at DESC
                 LIMIT %s OFFSET %s
             """, (limit, offset))
-        rows = cur.fetchall()
-        cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in rows]
+        return rows_to_dicts(cur)
     finally:
         conn.close()
 
@@ -105,9 +101,7 @@ def get_new_articles_since(last_fetched_at: datetime, user_id: int) -> list[dict
               AND a.published_at > %s
             ORDER BY a.published_at DESC
         """, (user_id, last_fetched_at))
-        rows = cur.fetchall()
-        cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in rows]
+        return rows_to_dicts(cur)
     finally:
         conn.close()
 
@@ -124,7 +118,6 @@ def get_recommended_articles(user_id: int, limit: int = 9, page: int = 1, exclud
     try:
         cur = conn.cursor()
 
-        # 유저 카테고리 가중치 조회
         cur.execute("""
             SELECT category_id, weight
             FROM user_category_prefs
@@ -206,9 +199,7 @@ def get_recommended_articles(user_id: int, limit: int = 9, page: int = 1, exclud
                     LIMIT %s OFFSET %s
                 """, (user_id, cat_id, count, offset))
 
-            rows = cur.fetchall()
-            cols = [desc[0] for desc in cur.description]
-            articles.extend([dict(zip(cols, row)) for row in rows])
+            articles.extend(rows_to_dicts(cur))
 
         # 카테고리별로 섞되 가중치 높은 순 유지하면서 인터리빙
         result = []
@@ -217,7 +208,6 @@ def get_recommended_articles(user_id: int, limit: int = 9, page: int = 1, exclud
             cat = a['category_name']
             buckets.setdefault(cat, []).append(a)
 
-        # 라운드로빈 방식으로 인터리빙
         while any(buckets.values()):
             for cat_id, _ in prefs:
                 cur.execute("SELECT name FROM categories WHERE category_id = %s", (cat_id,))
@@ -252,9 +242,7 @@ def get_duplicate_articles(representative_id: int) -> list[dict]:
             WHERE a.representative_id = %s
             ORDER BY SPLIT_PART(ns.name, '_', 1), a.published_at DESC
         """, (representative_id,))
-        rows = cur.fetchall()
-        cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in rows]
+        return rows_to_dicts(cur)
     finally:
         conn.close()
 
@@ -287,8 +275,6 @@ def get_trending_articles(limit: int = 9) -> list[dict]:
             ORDER BY press_count DESC, a.published_at DESC
             LIMIT %s
         """, (limit,))
-        rows = cur.fetchall()
-        cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in rows]
+        return rows_to_dicts(cur)
     finally:
         conn.close()

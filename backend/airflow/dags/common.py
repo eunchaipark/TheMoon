@@ -63,18 +63,14 @@ def save_article(source_id: int, category_id: int, title: str,
         conn.close()
 
 
-def collect_rss(source_id: int, category_id: int, rss_url: str) -> dict:
-    # 연합뉴스, 매일경제 공통 — summary 필드 사용
-    logger.info(f"RSS 수집 시작: {rss_url}")
-    feed = feedparser.parse(rss_url)
-
-    total = len(feed.entries)
+def _collect_entries(source_id: int, category_id: int, entries, extract_description) -> dict:
+    total = len(entries)
     saved = 0
     skipped = 0
 
-    for entry in feed.entries:
+    for entry in entries:
         title = clean_html(entry.get('title', ''))
-        description = clean_html(entry.get('summary', '') or entry.get('description', ''))
+        description = extract_description(entry)
         url = entry.get('link', '')
         published_at = parse_date(entry.get('published', ''))
 
@@ -87,7 +83,18 @@ def collect_rss(source_id: int, category_id: int, rss_url: str) -> dict:
         else:
             skipped += 1
 
-    result = {"total": total, "saved": saved, "skipped": skipped}
+    return {"total": total, "saved": saved, "skipped": skipped}
+
+
+def collect_rss(source_id: int, category_id: int, rss_url: str) -> dict:
+    # 연합뉴스, 매일경제 공통 — summary 필드 사용
+    logger.info(f"RSS 수집 시작: {rss_url}")
+    feed = feedparser.parse(rss_url)
+
+    result = _collect_entries(
+        source_id, category_id, feed.entries,
+        lambda entry: clean_html(entry.get('summary', '') or entry.get('description', '')),
+    )
     logger.info(f"RSS 수집 완료: {result}")
     return result
 
@@ -97,30 +104,12 @@ def collect_rss_sbs(source_id: int, category_id: int, rss_url: str) -> dict:
     logger.info(f"SBS RSS 수집 시작: {rss_url}")
     feed = feedparser.parse(rss_url)
 
-    total = len(feed.entries)
-    saved = 0
-    skipped = 0
-
-    for entry in feed.entries:
-        title = clean_html(entry.get('title', ''))
-        url = entry.get('link', '')
-        published_at = parse_date(entry.get('published', ''))
-
+    def extract_description(entry):
         content_list = entry.get('content', [])
         if content_list:
-            description = clean_html(content_list[0].get('value', ''))
-        else:
-            description = clean_html(entry.get('summary', ''))
+            return clean_html(content_list[0].get('value', ''))
+        return clean_html(entry.get('summary', ''))
 
-        if not validate_article(title, description, url, published_at):
-            skipped += 1
-            continue
-
-        if save_article(source_id, category_id, title, description, url, published_at):
-            saved += 1
-        else:
-            skipped += 1
-
-    result = {"total": total, "saved": saved, "skipped": skipped}
+    result = _collect_entries(source_id, category_id, feed.entries, extract_description)
     logger.info(f"SBS RSS 수집 완료: {result}")
     return result

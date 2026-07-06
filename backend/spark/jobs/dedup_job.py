@@ -3,10 +3,7 @@ import sys
 import logging
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import (
-    StructType, StructField,
-    LongType, IntegerType, FloatType, ArrayType, StringType, BooleanType
-)
+from pyspark.sql.types import FloatType, ArrayType
 
 logging.basicConfig(
     level=logging.INFO,

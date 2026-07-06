@@ -19,7 +19,6 @@ llm = ChatGoogleGenerativeAI(
 )
 
 
-# 모든 툴을 하나의 에이전트에 통합
 def build_all_tools(user_id: int):
     def search_all(query: str) -> str:
         chunks = vector_retrieve(query, user_id, top_k=5)
@@ -27,23 +26,17 @@ def build_all_tools(user_id: int):
             return "관련 뉴스를 찾지 못했습니다."
         return "\n\n".join([f"[{c['source_name']}] {c['title']}\n{c['content']}" for c in chunks[:5]])
 
-    def search_politics(query: str) -> str:
-        chunks = retrieve_by_category(query, "정치", top_k=5)
-        if not chunks:
-            return "정치 관련 뉴스를 찾지 못했습니다."
-        return "\n\n".join([f"[{c['source_name']}] {c['title']}\n{c['content']}" for c in chunks])
+    def make_category_search(category_name: str):
+        def _search(query: str) -> str:
+            chunks = retrieve_by_category(query, category_name, top_k=5)
+            if not chunks:
+                return f"{category_name} 관련 뉴스를 찾지 못했습니다."
+            return "\n\n".join([f"[{c['source_name']}] {c['title']}\n{c['content']}" for c in chunks])
+        return _search
 
-    def search_economy(query: str) -> str:
-        chunks = retrieve_by_category(query, "경제", top_k=5)
-        if not chunks:
-            return "경제 관련 뉴스를 찾지 못했습니다."
-        return "\n\n".join([f"[{c['source_name']}] {c['title']}\n{c['content']}" for c in chunks])
-
-    def search_society(query: str) -> str:
-        chunks = retrieve_by_category(query, "사회", top_k=5)
-        if not chunks:
-            return "사회 관련 뉴스를 찾지 못했습니다."
-        return "\n\n".join([f"[{c['source_name']}] {c['title']}\n{c['content']}" for c in chunks])
+    search_politics = make_category_search("정치")
+    search_economy = make_category_search("경제")
+    search_society = make_category_search("사회")
 
     def sentiment(category: str) -> str:
         chunks = vector_retrieve(f"{category} 최신 동향", user_id, top_k=10)
@@ -116,7 +109,6 @@ def answer_single(query: str, user_id: int, history: list = None) -> dict:
     result = executor.invoke({"input": query, "chat_history": history or []})
     elapsed = time.time() - start
 
-    # 사용된 툴 이름 추출
     tools_used = []
     for step in result.get("intermediate_steps", []):
         action = step[0]
