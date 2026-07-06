@@ -46,7 +46,6 @@ export default function Main() {
     const activeCategoryRef = useRef(null)
     const loadingRef = useRef(false)
 
-    // ── 추천 로드 ─────────────────────────────────
     const loadRecommended = useCallback(async (reset = false) => {
         if (!isLoggedIn || recLoading) return
         setRecLoading(true)
@@ -70,7 +69,6 @@ export default function Main() {
         }
     }, [isLoggedIn, recLoading, recPage, seenIds])
 
-    // ── 최신 뉴스 로드 ────────────────────────────
     const loadLatest = useCallback(async (pageNum, catId) => {
         if (loadingRef.current) return
         loadingRef.current = true
@@ -92,7 +90,6 @@ export default function Main() {
         }
     }, [])
 
-    // ── 카테고리 탭 변경 ──────────────────────────
     const handleCategoryChange = useCallback((catId) => {
         if (catId === activeCategoryRef.current) return
         activeCategoryRef.current = catId
@@ -103,7 +100,7 @@ export default function Main() {
         loadLatest(1, catId)
     }, [loadLatest])
 
-    // ── SSE ───────────────────────────────────────
+    // SSE 연결
     useEffect(() => {
         if (isLoggedIn && user) {
             sseRef.current = connectSSE(user.user_id, (newArticles) => {
@@ -118,7 +115,7 @@ export default function Main() {
         return () => sseRef.current?.close()
     }, [isLoggedIn, user])
 
-    // ── 초기 로드 ─────────────────────────────────
+    // 초기 로드
     useEffect(() => {
         const init = async () => {
             if (isLoggedIn) loadRecommended(true)
@@ -128,13 +125,12 @@ export default function Main() {
         init()
     }, [isLoggedIn])
 
-    // ── 마이페이지 닫힐 때 추천 새로고침 ─────────
+    // 마이페이지 닫힐 때 추천 새로고침
     const handleMypageClose = () => {
         setMypageOpen(false)
         if (isLoggedIn) loadRecommended(true)
     }
 
-    // ── 무한 스크롤 ───────────────────────────────
     const handleObserver = useCallback((entries) => {
         const target = entries[0]
         if (target.isIntersecting && hasMore && !loadingRef.current) {

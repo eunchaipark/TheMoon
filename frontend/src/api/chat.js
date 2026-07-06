@@ -52,7 +52,6 @@ export const sendMessageStream = async (question, sessionId, onChunk, onDone) =>
         if (parsed.status === 'processing') continue
         // 청크 누적
         if (parsed.chunk && parsed.status !== 'processing') onChunk(parsed.chunk)
-        // 완료
         if (parsed.status === 'done') onDone?.()
         if (parsed.error) throw new Error(parsed.error)
       } catch {}
