@@ -1,5 +1,7 @@
 x-airflow-common: &airflow-common
-  image: apache/airflow:3.2.2
+  build:
+    context: ./backend/airflow
+    dockerfile: Dockerfile
   environment:
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/airflow
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -25,35 +27,44 @@ x-airflow-common: &airflow-common
   networks:
     - news_net
 
-services:
+x-backend-env: &backend-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: ${POSTGRES_DB}
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  GEMINI_API_KEY: ${GEMINI_API_KEY}
+  EMBED_MODEL: ${EMBED_MODEL}
+  AIRFLOW_SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+  TAVILY_API_KEY: ${TAVILY_API_KEY}
+  LANGCHAIN_TRACING_V2: "true"
+  LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
+  LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT:-TheMoon}
+  LANGCHAIN_ENDPOINT: https://api.smith.langchain.com
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  LANG: C.UTF-8
+  LC_ALL: C.UTF-8
+  PYTHONIOENCODING: utf-8
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: news_zookeeper
-    restart: always
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - news_net
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
-      interval: 10s
-      retries: 5
+services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: news_kafka
     restart: always
-    depends_on:
-      zookeeper:
-        condition: service_healthy
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     ports:
       - "9092:9092"
     networks:
@@ -72,25 +83,7 @@ services:
     restart: always
     command: python -m worker.chat_consumer
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      EMBED_MODEL: ${EMBED_MODEL}
-      AIRFLOW_SECRET_KEY: ${AIRFLOW_SECRET_KEY}
-      TAVILY_API_KEY: ${TAVILY_API_KEY}
-      LANGCHAIN_TRACING_V2: "true"
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
-      LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT:-TheMoon}
-      LANGCHAIN_ENDPOINT: https://api.smith.langchain.com
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      LANG: C.UTF-8
-      LC_ALL: C.UTF-8
-      PYTHONIOENCODING: utf-8
+      <<: *backend-env
     volumes:
       - ./backend:/app
     depends_on:
@@ -170,12 +163,13 @@ services:
       timeout: 10s
       retries: 3
 
-  spark-worker-1:
+  spark-worker:
     build:
       context: ./backend/spark
-    container_name: news_spark_worker_1
     restart: always
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    deploy:
+      replicas: 3
     environment:
       SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-2g}
       SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-2}
@@ -193,55 +187,6 @@ services:
         condition: service_healthy
     networks:
       - news_net
-
-  spark-worker-2:
-    build:
-      context: ./backend/spark
-    container_name: news_spark_worker_2
-    restart: always
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
-    environment:
-      SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-2g}
-      SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-2}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      EMBED_MODEL: ${EMBED_MODEL}
-    volumes:
-      - ./backend/spark/jobs:/opt/spark/jobs
-      - spark_model_cache:/root/.cache/huggingface
-    depends_on:
-      spark-master:
-        condition: service_healthy
-    networks:
-      - news_net
-
-  spark-worker-3:
-    build:
-      context: ./backend/spark
-    container_name: news_spark_worker_3
-    restart: always
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
-    environment:
-      SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-2g}
-      SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-2}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      EMBED_MODEL: ${EMBED_MODEL}
-    volumes:
-      - ./backend/spark/jobs:/opt/spark/jobs
-      - spark_model_cache:/root/.cache/huggingface
-    depends_on:
-      spark-master:
-        condition: service_healthy
-    networks:
-      - news_net
-
 
   airflow-webserver:
     <<: *airflow-common
@@ -249,7 +194,6 @@ services:
     restart: always
     command: >
       bash -c "
-        pip install apache-airflow-providers-fab feedparser psycopg2-binary &&
         airflow db migrate &&
         airflow users create --username ${AIRFLOW_USER} --password ${AIRFLOW_PASSWORD} --firstname Admin --lastname User --role Admin --email ${AIRFLOW_EMAIL} || true &&
         airflow api-server
@@ -268,7 +212,7 @@ services:
     <<: *airflow-common
     container_name: news_airflow_dag_processor
     restart: always
-    command: bash -c "pip install feedparser psycopg2-binary && airflow db migrate && airflow dag-processor"
+    command: bash -c "airflow db migrate && airflow dag-processor"
     depends_on:
       airflow-webserver:
         condition: service_healthy
@@ -277,7 +221,7 @@ services:
     <<: *airflow-common
     container_name: news_airflow_scheduler
     restart: always
-    command: bash -c "pip install feedparser psycopg2-binary && airflow db migrate && airflow scheduler"
+    command: bash -c "airflow db migrate && airflow scheduler"
     depends_on:
       airflow-webserver:
         condition: service_healthy
@@ -289,25 +233,7 @@ services:
     container_name: news_fastapi
     restart: always
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      EMBED_MODEL: ${EMBED_MODEL}
-      AIRFLOW_SECRET_KEY: ${AIRFLOW_SECRET_KEY}
-      TAVILY_API_KEY: ${TAVILY_API_KEY}
-      LANGCHAIN_TRACING_V2: "true"
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
-      LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT:-TheMoon}
-      LANGCHAIN_ENDPOINT: https://api.smith.langchain.com
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      LANG: C.UTF-8
-      LC_ALL: C.UTF-8
-      PYTHONIOENCODING: utf-8
+      <<: *backend-env
     volumes:
       - ./backend:/app
     ports:
