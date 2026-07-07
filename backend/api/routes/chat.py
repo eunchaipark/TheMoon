@@ -95,7 +95,6 @@ async def chat_stream(body: ChatRequest, authorization: str = Header(...)):
 
             yield f"data: {json.dumps({'chunk': '답변을 생성하고 있어요...', 'status': 'processing'}, ensure_ascii=False)}\n\n"
 
-            # Redis 폴링
             result_key = f"chat_result:{request_id}"
             max_wait = 120
             interval = 1
@@ -142,7 +141,6 @@ async def chat_stream(body: ChatRequest, authorization: str = Header(...)):
                     r.delete(result_key)
                     return
 
-            # 타임아웃
             yield f"data: {json.dumps({'chunk': '응답 시간이 초과되었습니다. 다시 시도해주세요.', 'status': 'timeout'}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
 

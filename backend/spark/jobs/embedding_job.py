@@ -100,7 +100,6 @@ def process_partition(rows):
     # 모델 로드 (Worker 프로세스 내 전역 캐시 활용)
     model = get_worker_model(model_name)
 
-    # 청킹
     all_chunks = []
     for row in rows_list:
         full_text = f"{row.title}. {row.description}" if row.description else row.title
@@ -121,7 +120,6 @@ def process_partition(rows):
         show_progress_bar=False,
     )
 
-    # DB 저장
     conn = psycopg2.connect(
         host=pg_host, port=pg_port,
         dbname=pg_db, user=pg_user, password=pg_pass

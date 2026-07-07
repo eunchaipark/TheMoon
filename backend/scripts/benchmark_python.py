@@ -73,7 +73,6 @@ def main():
     articles = cur.fetchall()
     print(f"      대상 기사: {len(articles)}건 ({time.time() - t0:.1f}초)")
 
-    # 3. 청킹
     t0 = time.time()
     print("\n[3/4] 청킹 중...")
     all_chunks = []
@@ -112,7 +111,6 @@ def main():
     embed_time = time.time() - t0
     print(f"      완료: {saved}개 저장 ({embed_time:.1f}초)")
 
-    # is_processed 업데이트
     article_ids = [a[0] for a in articles]
     cur.execute(
         "UPDATE articles SET is_processed = true WHERE article_id = ANY(%s)",

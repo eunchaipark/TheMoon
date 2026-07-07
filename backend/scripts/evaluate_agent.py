@@ -8,12 +8,10 @@ from langsmith import Client
 from langsmith.evaluation import evaluate, LangChainStringEvaluator
 from langchain_google_genai import ChatGoogleGenerativeAI
 from core.config import settings
-from rag.agent import answer, get_graph
+from rag.agent import answer
 
-# LangSmith 클라이언트
 client = Client(api_key=settings.LANGCHAIN_API_KEY)
 
-# 평가용 LLM
 eval_llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     google_api_key=settings.GEMINI_API_KEY,

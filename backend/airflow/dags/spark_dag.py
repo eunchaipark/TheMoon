@@ -39,7 +39,6 @@ def _run_spark_job(job_file: str, extra_conf: dict = None) -> dict:
 
     cmd = ["docker", "exec"]
 
-    # 환경변수
     env_vars = {
         "POSTGRES_HOST":     os.getenv("POSTGRES_HOST", "postgres"),
         "POSTGRES_PORT":     os.getenv("POSTGRES_PORT", "5432"),
