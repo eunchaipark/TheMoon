@@ -289,8 +289,23 @@ RAG_ANSWER_PROMPT = ChatPromptTemplate.from_messages([
     ("human", "{question}"),
 ])
 
+RAG_RETRY_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", "당신은 뉴스 검색 전문 에이전트입니다. 이전 답변이 너무 짧거나 부실하다고 판단되어 재시도합니다. "
+               "아래에 더 폭넓게 검색한 뉴스 기사를 참고하여, 이전 답변보다 더 구체적이고 완전한 답을 작성하세요. "
+               "기사에 없는 내용은 추측하지 말고 모른다고 답하세요.\n\n"
+               "[이전의 부실한 답변]\n{previous_answer}\n\n[참고 뉴스]\n{context}"),
+    ("human", "{question}"),
+])
+
 ANALYSIS_ANSWER_PROMPT = ChatPromptTemplate.from_messages([
     ("system", "당신은 뉴스 분석 전문 에이전트입니다. 아래 뉴스 기사를 참고하여 질문에 대한 감성/트렌드/인사이트를 분석해 답하세요.\n\n[참고 뉴스]\n{context}"),
+    ("human", "{question}"),
+])
+
+ANALYSIS_RETRY_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", "당신은 뉴스 분석 전문 에이전트입니다. 이전 분석 답변이 너무 짧거나 부실하다고 판단되어 재시도합니다. "
+               "아래에 더 폭넓게 검색한 뉴스 기사를 참고하여, 이전 답변보다 더 구체적인 감성/트렌드/인사이트 분석을 작성하세요.\n\n"
+               "[이전의 부실한 답변]\n{previous_answer}\n\n[참고 뉴스]\n{context}"),
     ("human", "{question}"),
 ])
 
@@ -387,9 +402,21 @@ def _run_agent(llm, tools, system_message, state, max_time=30, max_iter=3):
 def rag_agent_node(state: AgentState) -> AgentState:
     user_id = state["user_id"]
     question = state["question"]
-    chunks = vector_retrieve(question, user_id, top_k=5)
-    chain = RAG_ANSWER_PROMPT | rag_llm
-    result = chain.invoke({"question": question, "context": _format_chunks(chunks)})
+    is_retry = state.get("retry_count", 0) > 0
+    top_k = 10 if is_retry else 5
+    chunks = vector_retrieve(question, user_id, top_k=top_k)
+
+    if is_retry:
+        chain = RAG_RETRY_PROMPT | rag_llm
+        result = chain.invoke({
+            "question": question,
+            "context": _format_chunks(chunks),
+            "previous_answer": state.get("agent_answer", ""),
+        })
+    else:
+        chain = RAG_ANSWER_PROMPT | rag_llm
+        result = chain.invoke({"question": question, "context": _format_chunks(chunks)})
+
     sources = _extract_sources(chunks[:3])
     return {**state, "agent_answer": result.content, "sources": sources}
 
@@ -397,14 +424,27 @@ def rag_agent_node(state: AgentState) -> AgentState:
 def analysis_agent_node(state: AgentState) -> AgentState:
     user_id = state["user_id"]
     question = state["question"]
+    is_retry = state.get("retry_count", 0) > 0
+    top_k = 20 if is_retry else 10
     ko_category = _infer_category(question)
     if ko_category:
-        chunks = vector_retrieve(f"{ko_category} 최신 동향", user_id, top_k=10)
+        chunks = vector_retrieve(f"{ko_category} 최신 동향", user_id, top_k=top_k)
         chunks = [c for c in chunks if c.get('category_name') == ko_category]
     else:
-        chunks = vector_retrieve(question, user_id, top_k=10)
-    chain = ANALYSIS_ANSWER_PROMPT | analysis_llm
-    result = chain.invoke({"question": question, "context": _format_chunks(chunks[:5])})
+        chunks = vector_retrieve(question, user_id, top_k=top_k)
+
+    context_chunks = chunks[:10] if is_retry else chunks[:5]
+    if is_retry:
+        chain = ANALYSIS_RETRY_PROMPT | analysis_llm
+        result = chain.invoke({
+            "question": question,
+            "context": _format_chunks(context_chunks),
+            "previous_answer": state.get("agent_answer", ""),
+        })
+    else:
+        chain = ANALYSIS_ANSWER_PROMPT | analysis_llm
+        result = chain.invoke({"question": question, "context": _format_chunks(context_chunks)})
+
     sources = _extract_sources(chunks[:3])
     return {**state, "agent_answer": result.content, "sources": sources}
 
@@ -415,11 +455,13 @@ def web_agent_node(state: AgentState) -> AgentState:
         TavilySearchResults(max_results=2),
         make_rag_search_tool(user_id, category_key="all"),
     ]
-    result = _run_agent(
-        web_llm, tools,
-        "당신은 실시간 정보 검색 전문 에이전트입니다. 웹 검색으로 최신 정보를 찾고 출처를 명확히 밝히세요.",
-        state,
-    )
+    system_message = "당신은 실시간 정보 검색 전문 에이전트입니다. 웹 검색으로 최신 정보를 찾고 출처를 명확히 밝히세요."
+    if state.get("retry_count", 0) > 0:
+        system_message += (
+            f"\n\n이전 검색 답변이 부실했습니다: {state.get('agent_answer', '')}\n"
+            "다른 검색어나 관점으로 다시 검색해서 더 구체적인 답을 작성하세요."
+        )
+    result = _run_agent(web_llm, tools, system_message, state)
     return {**state, "agent_answer": result.get("output", ""), "sources": []}
 
 
