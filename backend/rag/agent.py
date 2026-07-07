@@ -5,12 +5,13 @@ from typing import TypedDict, Literal, Optional
 from typing import AsyncGenerator
 
 import langchain
-from langchain.tools import Tool
-from langchain.tools import tool
+from langchain.tools import StructuredTool
+from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.rate_limiters import InMemoryRateLimiter
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.cache import RedisCache
 from langchain.agents import AgentExecutor, create_tool_calling_agent
@@ -18,18 +19,15 @@ from langgraph.graph import StateGraph, END
 import redis
 
 from rag.retrieve import retrieve as vector_retrieve
-from repository import feed_repo
 from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# LangSmith 설정
 os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
 os.environ.setdefault("LANGCHAIN_PROJECT", settings.LANGCHAIN_PROJECT)
 if settings.LANGCHAIN_API_KEY:
     os.environ.setdefault("LANGCHAIN_API_KEY", settings.LANGCHAIN_API_KEY)
 
-# 미들웨어: 시맨틱 캐시 (유사 질문 캐시 히트)
 _redis_client = None
 
 def get_redis_client():
@@ -42,36 +40,16 @@ def get_redis_client():
         )
     return _redis_client
 
-def setup_semantic_cache():
+def setup_llm_cache():
     try:
         r = get_redis_client()
         r.ping()
-        from langchain_community.cache import RedisSemanticCache
-        from rag.retrieve import get_model as get_embed_model
-        _base_model = get_embed_model()
-
-        class ReuseEmbeddings:
-            def embed_documents(self, texts):
-                return _base_model.encode(texts, normalize_embeddings=True).tolist()
-            def embed_query(self, text):
-                return _base_model.encode([text], normalize_embeddings=True)[0].tolist()
-
-        langchain.llm_cache = RedisSemanticCache(
-            redis_url=f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6379')}",
-            embedding=ReuseEmbeddings(),
-            score_threshold=0.9,
-        )
-        logger.info("시맨틱 캐시 연결 성공 (기존 임베딩 모델 재사용)")
+        langchain.llm_cache = RedisCache(r, ttl=86400)
+        logger.info("Redis 캐시 연결 성공 (정확 일치 캐시)")
     except Exception as e:
-        logger.warning(f"시맨틱 캐시 실패, 일반 Redis 캐시로 폴백: {e}")
-        try:
-            r = get_redis_client()
-            langchain.llm_cache = RedisCache(r, ttl=86400)
-            logger.info("일반 Redis 캐시 연결 성공")
-        except Exception as e2:
-            logger.warning(f"Redis 연결 실패, 캐시 비활성화: {e2}")
+        logger.warning(f"Redis 연결 실패, 캐시 비활성화: {e}")
 
-setup_semantic_cache()
+setup_llm_cache()
 
 
 
@@ -147,8 +125,14 @@ def log_quality(user_id: int, query: str, answer: str, score: float, route: str)
         logger.warning(f"품질 로깅 실패 (무시): {e}")
 
 
-#  LLM 초기화
 def make_llm(temperature: float = 0.3):
+    return ChatOllama(
+        model=settings.OLLAMA_MODEL,
+        base_url=settings.OLLAMA_BASE_URL,
+        temperature=temperature,
+    )
+
+def make_web_llm(temperature: float = 0.3):
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         google_api_key=settings.GEMINI_API_KEY,
@@ -160,11 +144,10 @@ router_llm   = make_llm(temperature=0)
 slot_llm     = make_llm(temperature=0)
 rag_llm      = make_llm(temperature=0.3)
 analysis_llm = make_llm(temperature=0.3)
-web_llm      = make_llm(temperature=0.3)
+web_llm      = make_web_llm(temperature=0.3)
 summary_llm  = make_llm(temperature=0.2)
 
 
-# 상태 정의
 class AgentState(TypedDict):
     question: str
     user_id: int
@@ -180,13 +163,15 @@ class AgentState(TypedDict):
     sources: list[dict]
 
 
-# 툴 정의
 CATEGORY_MAP = {
     "all":      {"ko": None,   "label": "전체"},
     "politics": {"ko": "정치", "label": "정치"},
     "economy":  {"ko": "경제", "label": "경제"},
     "society":  {"ko": "사회", "label": "사회"},
 }
+
+class SearchQueryInput(BaseModel):
+    query: str = Field(description="검색할 키워드 또는 질문 문장")
 
 def make_rag_search_tool(user_id: int, category_key: str = "all"):
     cat    = CATEGORY_MAP.get(category_key, CATEGORY_MAP["all"])
@@ -212,71 +197,40 @@ def make_rag_search_tool(user_id: int, category_key: str = "all"):
                 )
         return "\n\n".join(results)
 
-    return Tool(
-        name=f"news_rag_search_{category_key}",
+    return StructuredTool.from_function(
         func=_search,
+        name=f"news_rag_search_{category_key}",
         description=f"뉴스 DB에서 {label} 카테고리 기사를 벡터 검색합니다.",
+        args_schema=SearchQueryInput,
     )
 
 
-@tool
-def trending_news(query: str = "") -> str:
-    """현재 여러 언론사에서 동시에 보도 중인 화제 기사를 조회합니다."""
-    try:
-        articles = feed_repo.get_trending_articles(limit=5)
-        if not articles:
-            return "현재 화제 기사가 없습니다."
-        results = []
-        for a in articles:
-            results.append(
-                f"[{a['category_name']} / 언론사 {a['press_count']}곳] {a['title']}\n"
-                f"출처: {a['source_name']} | URL: {a['url']}"
+def _format_chunks(chunks: list[dict]) -> str:
+    if not chunks:
+        return "관련 뉴스를 찾지 못했습니다."
+    lines = []
+    seen = set()
+    for chunk in chunks:
+        if chunk['article_id'] not in seen:
+            seen.add(chunk['article_id'])
+            pub = chunk['published_at'].strftime('%Y-%m-%d') if chunk.get('published_at') else ''
+            lines.append(
+                f"[{chunk['source_name']} / {pub}] {chunk['title']}\n"
+                f"내용: {chunk['content']}\n"
+                f"URL: {chunk['url']}"
             )
-        return "\n\n".join(results)
-    except Exception as e:
-        return f"화제 기사 조회 실패: {e}"
+    return "\n\n".join(lines)
 
 
-def make_related_news_tool(user_id: int):
-    def _related(query: str) -> str:
-        chunks = vector_retrieve(query, user_id, top_k=3)
-        if not chunks:
-            return "관련 뉴스를 찾지 못했습니다."
-        results = []
-        seen = set()
-        for chunk in chunks:
-            if chunk['article_id'] not in seen:
-                seen.add(chunk['article_id'])
-                results.append(f"• [{chunk['source_name']}] {chunk['title']} - {chunk['url']}")
-        return "\n".join(results)
+CATEGORY_KEYWORDS = {"정치": "politics", "경제": "economy", "사회": "society"}
 
-    return Tool(
-        name="related_news",
-        func=_related,
-        description="현재 질문과 관련된 추가 뉴스 기사를 검색합니다.",
-    )
+def _infer_category(question: str) -> str | None:
+    for ko in CATEGORY_KEYWORDS:
+        if ko in question:
+            return ko
+    return None
 
 
-def make_sentiment_tool(user_id: int):
-    def _sentiment(category: str) -> str:
-        chunks = vector_retrieve(f"{category} 최신 동향", user_id, top_k=10)
-        cat_chunks = [c for c in chunks if c.get('category_name') == category]
-        if not cat_chunks:
-            return f"{category} 카테고리 뉴스를 찾지 못했습니다."
-        titles = [c['title'] for c in cat_chunks[:5]]
-        return (
-            f"{category} 뉴스 감성 분석 대상 ({len(cat_chunks)}건):\n" +
-            "\n".join(f"• {t}" for t in titles) +
-            f"\n\n위 기사들을 바탕으로 {category} 분야의 전반적인 감성과 트렌드를 분석해주세요."
-        )
-
-    return Tool(
-        name="sentiment_analysis",
-        func=_sentiment,
-        description="특정 카테고리(정치/경제/사회) 뉴스의 전반적인 감성을 분석합니다.",
-    )
-
-# 프롬프트
 ROUTER_PROMPT = ChatPromptTemplate.from_messages([
     ("system", """사용자 질문을 다음 4가지 중 하나로 분류하세요.
 
@@ -329,9 +283,19 @@ AGENT_PROMPT = ChatPromptTemplate.from_messages([
     MessagesPlaceholder(variable_name="agent_scratchpad"),
 ])
 
+RAG_ANSWER_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", "당신은 뉴스 검색 전문 에이전트입니다. 아래 뉴스 기사를 참고하여 질문에 정확하게 답하세요. "
+               "기사에 없는 내용은 추측하지 말고 모른다고 답하세요.\n\n[참고 뉴스]\n{context}"),
+    ("human", "{question}"),
+])
+
+ANALYSIS_ANSWER_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", "당신은 뉴스 분석 전문 에이전트입니다. 아래 뉴스 기사를 참고하여 질문에 대한 감성/트렌드/인사이트를 분석해 답하세요.\n\n[참고 뉴스]\n{context}"),
+    ("human", "{question}"),
+])
 
 
-# 노드 구현
+
 def router_node(state: AgentState) -> AgentState:
     chain = ROUTER_PROMPT | router_llm
     result = chain.invoke({"question": state["question"]})
@@ -422,36 +386,27 @@ def _run_agent(llm, tools, system_message, state, max_time=30, max_iter=3):
 
 def rag_agent_node(state: AgentState) -> AgentState:
     user_id = state["user_id"]
-    tools = [
-        make_rag_search_tool(user_id, category_key="all"),
-        trending_news,
-        make_related_news_tool(user_id),
-    ]
-    result = _run_agent(
-        rag_llm, tools,
-        "당신은 뉴스 검색 전문 에이전트입니다. 뉴스 DB에서 관련 기사를 검색하여 정확한 정보를 제공하세요. 검색 결과 외의 내용은 추측하지 마세요.",
-        state,
-    )
-    sources = _extract_sources(vector_retrieve(state["question"], user_id, top_k=3))
-    return {**state, "agent_answer": result.get("output", ""), "sources": sources}
+    question = state["question"]
+    chunks = vector_retrieve(question, user_id, top_k=5)
+    chain = RAG_ANSWER_PROMPT | rag_llm
+    result = chain.invoke({"question": question, "context": _format_chunks(chunks)})
+    sources = _extract_sources(chunks[:3])
+    return {**state, "agent_answer": result.content, "sources": sources}
 
 
 def analysis_agent_node(state: AgentState) -> AgentState:
     user_id = state["user_id"]
-    tools = [
-        make_rag_search_tool(user_id, category_key="politics"),
-        make_rag_search_tool(user_id, category_key="economy"),
-        make_rag_search_tool(user_id, category_key="society"),
-        make_sentiment_tool(user_id),
-    ]
-    result = _run_agent(
-        analysis_llm, tools,
-        "당신은 뉴스 분석 전문 에이전트입니다. 질문과 관련된 카테고리 툴 1개만 선택해서 검색하세요. 불필요한 다중 툴 호출을 피하세요.",
-        state,
-        max_time=60,
-    )
-    sources = _extract_sources(vector_retrieve(state["question"], user_id, top_k=3))
-    return {**state, "agent_answer": result.get("output", ""), "sources": sources}
+    question = state["question"]
+    ko_category = _infer_category(question)
+    if ko_category:
+        chunks = vector_retrieve(f"{ko_category} 최신 동향", user_id, top_k=10)
+        chunks = [c for c in chunks if c.get('category_name') == ko_category]
+    else:
+        chunks = vector_retrieve(question, user_id, top_k=10)
+    chain = ANALYSIS_ANSWER_PROMPT | analysis_llm
+    result = chain.invoke({"question": question, "context": _format_chunks(chunks[:5])})
+    sources = _extract_sources(chunks[:3])
+    return {**state, "agent_answer": result.content, "sources": sources}
 
 
 def web_agent_node(state: AgentState) -> AgentState:
@@ -503,7 +458,6 @@ def validate_node(state: AgentState) -> AgentState:
 
 
 
-# 라우팅 함수
 def route_by_type(state: AgentState) -> str:
     return state.get("route", "rag")
 
@@ -529,7 +483,6 @@ def slot_response_node(state: AgentState) -> AgentState:
 
 
 
-# 헬퍼
 def _extract_sources(chunks: list) -> list:
     seen = set()
     sources = []
@@ -572,7 +525,6 @@ def _build_initial_state(query: str, user_id: int, history: list[dict]) -> Agent
     )
 
 
-# 그래프 빌드
 def build_graph():
     graph = StateGraph(AgentState)
 
@@ -630,7 +582,6 @@ def get_graph():
     return _graph
 
 
-# 공개 인터페이스
 def answer(query: str, user_id: int, history: list[dict]) -> dict:
     blocked = safety_filter(query)
     if blocked:
