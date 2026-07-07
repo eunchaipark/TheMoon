@@ -2,7 +2,7 @@ import re
 import logging
 import feedparser
 import psycopg2
-from datetime import datetime
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
 logger = logging.getLogger(__name__)
@@ -15,8 +15,14 @@ def clean_html(text: str) -> str:
 
 
 def parse_date(date_str: str) -> datetime | None:
+    # DB published_at은 timezone 없는 컬럼이고 Postgres NOW()는 UTC 기준이라,
+    # RSS의 오프셋(주로 KST +09:00)을 버리지 않고 UTC로 변환 후 저장해야
+    # "최근 N시간" 류 비교 쿼리가 실제 경과 시간과 어긋나지 않음
     try:
-        return parsedate_to_datetime(date_str).replace(tzinfo=None)
+        dt = parsedate_to_datetime(date_str)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=None)
     except Exception:
         return None
 
@@ -86,10 +92,18 @@ def _collect_entries(source_id: int, category_id: int, entries, extract_descript
     return {"total": total, "saved": saved, "skipped": skipped}
 
 
+def _check_feed_fetched(feed, rss_url: str) -> None:
+    # bozo=1이어도 entries가 있으면 경미한 XML 이슈일 수 있어 통과시키고,
+    # entries가 아예 없을 때만 진짜 수집 실패로 보고 예외를 던져 Airflow 재시도가 동작하게 함
+    if feed.bozo and not feed.entries:
+        raise RuntimeError(f"RSS 수집 실패: {rss_url} - {feed.bozo_exception}")
+
+
 def collect_rss(source_id: int, category_id: int, rss_url: str) -> dict:
     # 연합뉴스, 매일경제 공통 — summary 필드 사용
     logger.info(f"RSS 수집 시작: {rss_url}")
     feed = feedparser.parse(rss_url)
+    _check_feed_fetched(feed, rss_url)
 
     result = _collect_entries(
         source_id, category_id, feed.entries,
@@ -103,6 +117,7 @@ def collect_rss_sbs(source_id: int, category_id: int, rss_url: str) -> dict:
     # SBS 전용 — content 필드 우선 사용
     logger.info(f"SBS RSS 수집 시작: {rss_url}")
     feed = feedparser.parse(rss_url)
+    _check_feed_fetched(feed, rss_url)
 
     def extract_description(entry):
         content_list = entry.get('content', [])

@@ -207,6 +207,9 @@ def run(spark: SparkSession):
     articles_df.foreachPartition(process_partition)
 
     # 4. is_processed=true 업데이트
+    # article_id는 BIGSERIAL이라 이 배치 조회 이후 들어온 신규 기사는
+    # max_id보다 큰 id를 받으므로, 범위를 min_id~max_id로 한정해야
+    # 임베딩되지 않은 신규 기사가 함께 processed 처리되는 걸 막을 수 있음
     conn = psycopg2.connect(
         host=POSTGRES_HOST, port=int(POSTGRES_PORT),
         dbname=POSTGRES_DB, user=POSTGRES_USER, password=POSTGRES_PASS
@@ -215,11 +218,12 @@ def run(spark: SparkSession):
         cur = conn.cursor()
         cur.execute("""
             UPDATE articles SET is_processed = true
-            WHERE is_processed = false
+            WHERE article_id BETWEEN %s AND %s
+              AND is_processed = false
               AND is_duplicate = false
               AND description IS NOT NULL
               AND length(description) >= 20
-        """)
+        """, (min_id, max_id))
         conn.commit()
         logger.info(f"is_processed=true 업데이트 완료")
     finally:

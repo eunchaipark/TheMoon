@@ -53,7 +53,7 @@ def retrieve(query: str, user_id: int, top_k: int = 5) -> list[dict]:
           AND a.is_duplicate = false
         ORDER BY (1 - (ac.embedding <=> %s::vector)) * 0.7
                      + COALESCE(ucp.weight, 5) / 10.0 * 0.2
-                     + EXTRACT(EPOCH FROM a.published_at) / EXTRACT(EPOCH FROM NOW()) * 0.1
+                     + EXP(-EXTRACT(EPOCH FROM (NOW() - a.published_at)) / (86400.0 * 3)) * 0.1
             DESC
         LIMIT %s
     """, (str(query_vector), user_id, str(query_vector), top_k))

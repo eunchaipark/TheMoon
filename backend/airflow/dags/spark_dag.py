@@ -54,13 +54,24 @@ def _run_spark_job(job_file: str, extra_conf: dict = None) -> dict:
     cmd += [SPARK_CONTAINER] + spark_submit_cmd
 
     logger.info(f"spark-submit 실행: {' '.join(spark_submit_cmd)}")
+    job_timeout = int(os.getenv("SPARK_JOB_TIMEOUT", "1800"))
 
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=int(os.getenv("SPARK_JOB_TIMEOUT", "1800")),
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=job_timeout,
+        )
+    except subprocess.TimeoutExpired:
+        # docker exec 클라이언트를 죽여도 컨테이너 안의 spark-submit(JVM)은
+        # 신호를 못 받아 계속 살아있으므로, 컨테이너 안에서 직접 프로세스를 종료시킴
+        logger.error(f"Spark Job {job_file} 타임아웃({job_timeout}s) - 컨테이너 내 프로세스 강제 종료")
+        subprocess.run(
+            ["docker", "exec", SPARK_CONTAINER, "pkill", "-f", job_file],
+            capture_output=True,
+        )
+        raise RuntimeError(f"Spark Job {job_file} 타임아웃 ({job_timeout}s 초과)")
 
     if result.returncode != 0:
         logger.error(f"Spark Job 실패:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}")
